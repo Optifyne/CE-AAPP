@@ -1,0 +1,4 @@
+ASYNC
+	#CEActionsActivator
+	#CEPlaceholdersActivator
+ENDASYNC
