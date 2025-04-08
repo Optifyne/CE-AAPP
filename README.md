@@ -4,7 +4,7 @@
 ## ⚙️ Installation:
 1. Install the TriggerReactor plugin at https://github.com/TriggerReactor/TriggerReactor/releases/download/3.5.0.6-Beta/TriggerReactor-bukkit-latest-3.5.0.6-Beta.jar.
 2. Install the TriggerReactor dependency at https://www.spigotmc.org/resources/jshader.93342/download?version=406835.
-3. Download the archive in the newest version folder at the link https://drive.google.com/drive/folders/1uSHXs5Y6o07R6dODUe2fONvl0bYaQrLq?usp=sharing (archive only)
+3. Download the archive in the newest version folder at the link https://drive.google.com/drive/folders/1uSHXs5Y6o07R6dODUe2fONvl0bYaQrLq?usp=sharing (archive only) OR download all source content here on GitHub.
 4. Unpack the contents of the archive into the plugins folder (as a result, the plugins folder should contain the TriggerReactor folder with all its contents, and if the folder was already there, replace it).
 5. Restart the server
 6. Make sure that everything is installed without errors: in the console you should see messages from ConditionalEvents and PlaceholderAPI about successful registration of new actions and new extension respectively.
