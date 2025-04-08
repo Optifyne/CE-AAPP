@@ -1,4 +1,4 @@
-**❗ Join originally ConditionalEvents Discord to the origin of this addon ❗**
+**❗ Join originally ConditionalEvents Discord to the origin of this addon https://discord.com/channels/698332177137401987/1348313697436569733 ❗**
 
 **👋 Hello, this addon adds a big pack of new actions and placeholders to ConditionalEvents, with it you have full control over entities, players, storages and many other useful features: everything that was previously possible only through vanilla commands or not possible at all in ConditionalEvents, is now possible directly in the built-in actions or placeholders.**
 
