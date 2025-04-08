@@ -14,6 +14,7 @@ For advanced users there is a great opportunity to modify everything instantly a
 
 ## 📌 Information (CE AAPP USER MANUAL EN https://docs.google.com/document/d/1hjR5gnUISp2b80S3Q8EBEsuNKcQpUMUd/edit?usp=sharing&ouid=113285856627329308573&rtpof=true&sd=true):
 For now the addon has 34 new actions and 18 new placeholders with different sub placeholders.
+
 **Using this pack, you can easily and quickly do the following**:
 
 ➡️ **With actions**: ``add, remove and change items from entities, players and storages, change weather and time (including for an individual player), give velocity to entities and players, change health and artificial intelligence of entities and players, change terrain like in WorldEdit, set entities and players on fire and freeze them, change player stats and balance, deal damage to entities and players (including source), forcibly drop the current item from the player's hands, parse the placeholder without any output, create new crafts, launch projectiles, create explosions, change gravity, place/break ItemsAdder/Oraxen blocks, change air level and many more.``
