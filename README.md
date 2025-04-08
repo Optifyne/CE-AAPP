@@ -23,4 +23,4 @@ For advanced users there is a great opportunity to modify everything instantly a
 ➡️ **With placeholders**: ``get item information from entities, players and storages, check for LuckPerms permissions with contexts, get highest block on location, get biomes on location, get random block in radius, get entities in radius, check if an entity is in water, process arrays, get real nickname by custom nickname in Essentials, get information about /team commands, get entity health, location, name, type, air level, frozeness, burnness etc information by UUID, save and obtain custom data (custom variables), get entity’s passengers, get player's open inventory and many more.``
 
 
-**⚠️ Please report any problems or bugs you find, and suggest ideas for new features.**
+**⚠️ Please report any problems or bugs you find, and suggest ideas for new features (to "issues" here or direct messages on Spigot or Discord).**
