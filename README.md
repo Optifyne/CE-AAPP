@@ -1,4 +1,4 @@
-**👋 Hi, this system adds a big pack of new actions and placeholders to ConditionalEvents, with it you have full control over entities, players and many other useful features: everything that was previously possible only through vanilla commands or not possible at all, is now possible directly in the built-in actions or placeholders.**
+**👋 Hi, this system adds a big pack of new actions and placeholders to ConditionalEvents, with it you have full control over entities, players, storages and many other useful features: everything that was previously possible only through vanilla commands or not possible at all in ConditionalEvents, is now possible directly in the built-in actions or placeholders.**
 
 ## ⚙️ Installation:
 1. Install the TriggerReactor plugin at https://github.com/TriggerReactor/TriggerReactor/releases/download/3.5.0.6-Beta/TriggerReactor-bukkit-latest-3.5.0.6-Beta.jar.
