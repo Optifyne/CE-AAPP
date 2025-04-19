@@ -1142,7 +1142,7 @@ function CEPlaceholdersActivator() {
                 var args = identifier.substring("array_".length).split("_");
                 if (args.length < 3) return "InvalidParameters";
 
-                var separator = args[0].toUpperCase();
+                var separator = args[0];
                 var operation = args[1].toUpperCase();
                 var array = null;
 
