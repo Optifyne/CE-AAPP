@@ -21,7 +21,7 @@ var Location = Java.type("org.bukkit.Location");
 var oraxenPlugin = Bukkit.getPluginManager().getPlugin("Oraxen");
 
 function CEchangeOraxenBlock() {
-    if (!itemsAdderPlugin) {
+    if (!oraxenPlugin) {
         Bukkit.getLogger().warning("[CEActions] CHANGE_ORAXEN_BLOCK ACTION: Action was skipped because Oraxen plugin is missing!");
         return null;
     } else {
