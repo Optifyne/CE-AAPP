@@ -47,7 +47,7 @@ function CEActionsActivator() {
 
             directoryStream.close();
         } catch (e) {
-            Bukkit.getLogger().warning("[CEActions] Failed to read the actions directory: " + e.getMessage());
+            Bukkit.getLogger().warning("[CEActions] Failed to read the actions directory: " + e.message);
         }
     } else {
         Bukkit.getLogger().warning("[CEActions] " + pluginString + " plugin not found!");
