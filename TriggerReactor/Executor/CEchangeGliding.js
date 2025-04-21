@@ -29,7 +29,7 @@ function CEchangeGliding() {
             }
 
             var targetIdentifier = args[0].trim();
-            var state = args[1].trim().toLowerCase();
+            var state = args[1].trim().toLowerCase() === "true";
             
             var targetEntity = null;
             try {
