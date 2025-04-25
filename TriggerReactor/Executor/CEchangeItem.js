@@ -353,7 +353,7 @@ function CEchangeItem() {
 
             if (params.action == "set" && params.lore) {
                 var loreEntries = params.lore.split("|");
-                var currentLore = meta.hasLore() ? meta.getLore().toArray() : [];
+                var currentLore = meta.hasLore() ? meta.getLore().toArray() : java.util.Arrays.asList().toArray();
                 var loreList = Java.from(currentLore);
                 var line = 0;
                 loreEntries.forEach(function(entry) {
