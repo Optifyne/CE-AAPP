@@ -70,8 +70,8 @@ function CEchangeItem() {
                 return;
             }
             
-            if (params.source && !params.target) {
-                Bukkit.getLogger().warning("[CEActions] CHANGE_ITEM ACTION: Missing 'target' parameter while 'source' is specified!");
+            if (!params.target) {
+                Bukkit.getLogger().warning("[CEActions] CHANGE_ITEM ACTION: Missing 'target' parameter!");
                 return;
             }
             
