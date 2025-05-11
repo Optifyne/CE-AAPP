@@ -173,7 +173,7 @@ function CEPlaceholdersActivator() {
                 
                 if (mode.startsWith("enchantment") && !mode.startsWith("enchantments")) {
                     if (mode.indexOf(":") === -1) return "Invalid Enchantment";
-                    var enchantmentString = arguments[0].split(":")[1].replaceAll("-", "_");
+                    var enchantmentString = mode.split(":")[1].replaceAll("-", "_");
                     if (!enchantmentString) return "Invalid Enchantment";
                     var enchantment = Enchantment.getByName(enchantmentString.toUpperCase());
                     return enchantment && item.containsEnchantment(enchantment) ? item.getEnchantmentLevel(enchantment) : "0";
