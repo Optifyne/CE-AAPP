@@ -672,29 +672,33 @@ function CEchangeItem() {
                         amountEach.material++;
                     }
 
-                    if (o.startsWith("source") && o.contains("{") && o.contains("}")) {
-                        var rawSourceOptions = o.substring(o.indexOf("{")+1, o.indexOf("}")).split("`");
-                        for (var i = 0; i < rawSourceOptions.length; i++) {
-                            var param = rawSourceOptions[i].trim().split("=");
-                            if (param.length === 2) {
-                                var path = param[0].trim().split(".");
-                                var value = param[1].trim();
+                    if (o.startsWith("source")) {
+                        if (o.contains("{") && o.contains("}")) {
+                            var rawSourceOptions = o.substring(o.indexOf("{")+1, o.indexOf("}")).split("`");
+                            for (var i = 0; i < rawSourceOptions.length; i++) {
+                                var param = rawSourceOptions[i].trim().split("=");
+                                if (param.length === 2) {
+                                    var path = param[0].trim().split(".");
+                                    var value = param[1].trim();
 
-                                var current = optionsEach.source[amountEach.source];
-                                for (var j = 0; j < path.length - 1; j++) {
-                                	if (!(path[j] in current)) {
-                                    	current[path[j]] = {};
-                                  	}
-                                	current = current[path[j]];
+                                    var current = optionsEach.source[amountEach.source];
+                                    for (var j = 0; j < path.length - 1; j++) {
+                                        if (!(path[j] in current)) {
+                                            current[path[j]] = {};
+                                        }
+                                        current = current[path[j]];
+                                    }
+
+                                    current[path[path.length - 1]] = isNaN(value) ? value : parseInt(value);
+                                } else {
+                                    Bukkit.getLogger().warning("[CEActions] CHANGE_ITEM ACTION: Invalid source option format in order parameter at position " + (i + 1) + ": " + args[i]);
+                                    continue;
                                 }
-
-                                current[path[path.length - 1]] = isNaN(value) ? value : parseInt(value);
-                            } else {
-                                Bukkit.getLogger().warning("[CEActions] CHANGE_ITEM ACTION: Invalid source option format in order parameter at position " + (i + 1) + ": " + args[i]);
-                                continue;
                             }
+                            amountEach.source++;
+                        } else if (o.contains("(") && o.contains(")")) {
+                            amountEach.source++;
                         }
-                        amountEach.source++;
                     }
 
                     if (o.startsWith("slot") && o.contains("{") && o.contains("}")) {
@@ -709,6 +713,20 @@ function CEchangeItem() {
                             }
                         }
                         amountEach.slot++;
+                    }
+                    
+                    switch (o) {
+                        case "source":
+                            amountEach.source++;
+                            break;
+                        case "slot":
+                            amountEach.slot++;
+                            break;
+                        case "material":
+                            amountEach.material++;
+                            break;
+                        default:
+                            break;
                     }
                 });
                 
@@ -804,7 +822,7 @@ function CEchangeItem() {
                                     item.setType(newMaterial);
                                 } else {
                                     cursor ? entity.setItemOnCursor(newItem) : inventory.setItem(slot, newItem);
-                                    item = newItem;
+                                    item = cursor ? inventory.getItemOnCursor() : inventory.getItem(slot);
                                 }
                                 if (options.source && checkNesting(options.source, "useNewMaterialIfFurther", "true")) newMaterialGlobal = item.getType().toString();
                             }
@@ -829,7 +847,7 @@ function CEchangeItem() {
                         } else if (params.action == "reset" && params.durability) {
                             meta.setDamage(0);
                         }
-
+                        
                         if (params.action == "set" && params.lore) {
                             var loreEntries = params.lore.split("|");
                             var currentLore = meta.hasLore() ? meta.getLore().toArray() : java.util.Arrays.asList().toArray();
@@ -1009,7 +1027,6 @@ function CEchangeItem() {
                         }
 
                         if (params.action == "set" && params.dataContainer) {
-                            var meta = item.getItemMeta();
                             var data = meta.getPersistentDataContainer();
 
                             var firstThreeParts = params.dataContainer.split(",", 3);
@@ -1027,7 +1044,6 @@ function CEchangeItem() {
                                 Bukkit.getLogger().warning("[CEActions] CHANGE_ITEM ACTION: Invalid dataContainer " + params.dataContainer);
                             }
                         } else if (params.action == "remove" && params.dataContainer) {
-                            var meta = item.getItemMeta();
                             var data = meta.getPersistentDataContainer();
                             var parts = params.dataContainer.split(",");
                             try {
@@ -1040,7 +1056,6 @@ function CEchangeItem() {
                                 Bukkit.getLogger().warning("[CEActions] CHANGE_ITEM ACTION: Invalid dataContainer " + params.dataContainer);
                             }
                         } else if (params.action == "reset" && params.dataContainer) {
-                            var meta = item.getItemMeta();
                             var data = meta.getPersistentDataContainer();
                             try {
                                 var keys = data.getKeys();
