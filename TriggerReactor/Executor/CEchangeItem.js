@@ -813,16 +813,23 @@ function CEchangeItem() {
                     if (params.action == "set" && params.newMaterial) {
                         var newMaterial = Material.matchMaterial(params.newMaterial);
                         if (newMaterial != null) {
-                            if (newMaterial == Material.AIR && (item == null || item.getType() == Material.AIR)) {
-                                if (replacedCount.count > 0) replacedCount.count--;
-                                if (counts.material > 0) counts.material--;
+                            if (newMaterial == Material.AIR) {
+                                if (item == null || item.getType() == Material.AIR) {
+                                    if (replacedCount.count > 0) replacedCount.count--;
+                                    if (counts.material > 0) counts.material--;
+                                } else {
+                                    var newItem = new ItemStack(Material.AIR, 1);
+                                    cursor ? entity.setItemOnCursor(newItem) : inventory.setItem(slot, newItem);
+                                    item = cursor ? entity.getItemOnCursor() : inventory.getItem(slot);
+                                    if (options.source && checkNesting(options.source, "useNewMaterialIfFurther", "true")) newMaterialGlobal = item.getType().toString();
+                                }
                             } else {
-                                var newItem = new ItemStack(Material.valueOf(newMaterial), 1);
                                 if (item != null && item.getType() != Material.AIR) {
                                     item.setType(newMaterial);
                                 } else {
+                                    var newItem = new ItemStack(Material.valueOf(newMaterial), 1);
                                     cursor ? entity.setItemOnCursor(newItem) : inventory.setItem(slot, newItem);
-                                    item = cursor ? inventory.getItemOnCursor() : inventory.getItem(slot);
+                                    item = cursor ? entity.getItemOnCursor() : inventory.getItem(slot);
                                 }
                                 if (options.source && checkNesting(options.source, "useNewMaterialIfFurther", "true")) newMaterialGlobal = item.getType().toString();
                             }
