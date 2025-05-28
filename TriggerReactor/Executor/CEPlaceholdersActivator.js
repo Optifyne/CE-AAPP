@@ -156,10 +156,12 @@ function CEPlaceholdersActivator() {
                 if (slotIndex === "CURSOR") item = target.getItemOnCursor ? target.getItemOnCursor() : null;
                 if (opened && target instanceof HumanEntity) inventory = target.getOpenInventory().getTopInventory();
                 
-                try {
-                    item = !isNaN(slotIndex) ? inventory.getItem(slotIndex) : inventory.getItem(EquipmentSlot.valueOf(slotIndex));
-                } catch (e) {
-                    return "InvalidSlot";
+                if (!item) {
+                    try {
+                        item = !isNaN(slotIndex) ? inventory.getItem(slotIndex) : inventory.getItem(EquipmentSlot.valueOf(slotIndex));
+                    } catch (e) {
+                        return "InvalidSlot";
+                    }
                 }
                 
                 if (!item || item.getType().isAir()) return "ItemNotFound";
