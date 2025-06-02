@@ -168,7 +168,7 @@ function CEPlaceholdersActivator() {
 				
                 if (mode.startsWith("lore")) {
                     var meta = item.getItemMeta();
-                    if (!meta || !meta.hasLore()) return "None";
+                    if (!meta || !meta.hasLore()) return "";
                     var lore = meta.getLore().toArray();
                     var selectedLore = "";
                     
@@ -180,13 +180,13 @@ function CEPlaceholdersActivator() {
                         for (var j = 0; j < indexes.length; j++) {
                             var index = parseInt(indexes[j]);
                             if (!isNaN(index) && index >= 0 && index < lore.length) {
-                                selectedLore += lore[index] + "\n";
+                                selectedLore += lore[index] + "|";
                             }
                         }
                     } else {
                         var loreText = "";
                         for (var i = 0; i < lore.length; i++) {
-                            loreText += lore[i] + "\n";
+                            loreText += lore[i] + "|";
                         }
                         return loreText.trim();
                     }
