@@ -2014,9 +2014,9 @@ function CEPlaceholdersActivator() {
                         } catch (e) {
                             e.printStackTrace();
                             if (e instanceof SQLException) {
-                                return "SQLException: " + e.getMessage && e.getMessage() ? e.getMessage() : e.message;
+                                return "SQLException: " + e.message;
                             } else {
-                                return "Error: " + e.getMessage && e.getMessage() ? e.getMessage() : e.message;
+                                return "Error: " + e.message;
                             }
                         }
                         break;
