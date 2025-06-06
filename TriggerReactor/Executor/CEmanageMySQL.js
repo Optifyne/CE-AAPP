@@ -24,6 +24,7 @@ var PreparedStatement = Java.type("java.sql.PreparedStatement");
 var Types = Java.type("java.sql.Types");
 var Timestamp = Java.type("java.sql.Timestamp");
 var Date = Java.type("java.sql.Date");
+var Runnable = Java.type("java.lang.Runnable");
 
 function CEmanageMySQL() {
     var ManageMySQLAction = Java.extend(ConditionalEventsAction, {
@@ -83,44 +84,48 @@ function CEmanageMySQL() {
 
                     stmt.setString(index, val);
                 } catch (e) {
-                    Bukkit.getLogger().warning("[CEActions] MANAGE_MYSQL ACTION: Failed to set parameter at index " + index + ": " + e.getMessage && e.getMessage() ? e.getMessage() : e.message);
+                    Bukkit.getLogger().warning("[CEActions] MANAGE_MYSQL ACTION: Failed to set parameter at index " + index + ": " + e.message);
                     stmt.setString(index, val);
                 }
             }
 
-            try {
-                try {
-                	var conn = DriverManager.getConnection(jdbcUrl);
-                } catch (e) {
-                    Bukkit.getLogger().warning("[CEActions] MANAGE_MYSQL ACTION: Invalid database JDBC link.");
-                	return;
-                }
-                
-                try {
-                	var stmt = conn.prepareStatement(query);
-                } catch (e) {
-                    Bukkit.getLogger().warning("[CEActions] MANAGE_MYSQL ACTION: Invalid query.");
-                	return;
-                }
+            Bukkit.getScheduler().runTaskAsynchronously(Bukkit.getPluginManager().getPlugin("TriggerReactor"), new (Java.extend(Runnable, {
+                run: function() {
+                    try {
+                        try {
+                            var conn = DriverManager.getConnection(jdbcUrl);
+                        } catch (e) {
+                            Bukkit.getLogger().warning("[CEActions] MANAGE_MYSQL ACTION: Invalid database JDBC link.");
+                            return;
+                        }
 
-                for (var i = 0; i < params.length; i++) {
-                    var val = params[i].trim();
-                    setAutoParam(stmt, i + 1, val);
-                }
+                        try {
+                            var stmt = conn.prepareStatement(query);
+                        } catch (e) {
+                            Bukkit.getLogger().warning("[CEActions] MANAGE_MYSQL ACTION: Invalid query.");
+                            return;
+                        }
 
-                stmt.executeUpdate();
+                        for (var i = 0; i < params.length; i++) {
+                            var val = params[i].trim();
+                            setAutoParam(stmt, i + 1, val);
+                        }
 
-                stmt.close();
-                conn.close();
-            } catch (e) {
-                if (e instanceof SQLException) {
-                    Bukkit.getLogger().warning("[CEActions] MANAGE_MYSQL ACTION: SQL Error: " + e.getMessage && e.getMessage() ? e.getMessage() : e.message);
-                } else {
-                    Bukkit.getLogger().warning("[CEActions] MANAGE_MYSQL ACTION: Unknown error: " + e.getMessage && e.getMessage() ? e.getMessage() : e.message);
+                        stmt.executeUpdate();
+
+                        stmt.close();
+                        conn.close();
+                    } catch (e) {
+                        if (e instanceof SQLException) {
+                            Bukkit.getLogger().warning("[CEActions] MANAGE_MYSQL ACTION: SQL Error: " + e.message);
+                        } else {
+                            Bukkit.getLogger().warning("[CEActions] MANAGE_MYSQL ACTION: Unknown error: " + e.message);
+                        }
+                        e.printStackTrace();
+                        return;
+                    }
                 }
-                e.printStackTrace();
-                return;
-            }
+            }))());
         }
     });
 
