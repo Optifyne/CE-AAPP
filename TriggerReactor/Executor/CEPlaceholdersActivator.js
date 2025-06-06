@@ -59,9 +59,13 @@ var Timestamp = Java.type("java.sql.Timestamp");
 var Date = Java.type("java.sql.Date");
 var pluginString = "TriggerReactor";
 var plugin = Bukkit.getPluginManager().getPlugin(pluginString);
+var Runnable = Java.type("java.lang.Runnable");
+var HashMap = Java.type("java.util.HashMap");
 
-var customDataTempGlobalData = new java.util.HashMap();
-var customDataTempTargetsData = new java.util.HashMap();
+var customDataTempGlobalData = new HashMap();
+var customDataTempTargetsData = new HashMap();
+
+var mysqlResultsCache = new HashMap();
 
 function CEPlaceholdersActivator() {
     var CEPlaceholders = Java.extend(PlaceholderExpansion, {
@@ -1001,7 +1005,7 @@ function CEPlaceholdersActivator() {
                 var result = new java.util.concurrent.atomic.AtomicReference();
                 var latch = new java.util.concurrent.CountDownLatch(1);
 
-                var runnable = new java.lang.Runnable({
+                var runnable = new Runnable({
                     run: function () {
                         try {
                             result.set(getEntitiesInRadius(world, x, y, z, radius, include, filters));
@@ -1583,7 +1587,7 @@ function CEPlaceholdersActivator() {
                     switch (action) {
                         case "set":
                             if (temp) {
-                                var targetData = customDataTempTargetsData.get(target) || new java.util.HashMap();
+                                var targetData = customDataTempTargetsData.get(target) || new HashMap();
                                 targetData.put(name, data);
                                 customDataTempTargetsData.put(target, targetData);
                             } else {
@@ -1618,7 +1622,7 @@ function CEPlaceholdersActivator() {
                             }
                         case "getset":
                             if (temp) {
-                                var targetData = customDataTempTargetsData.get(target) || new java.util.HashMap();
+                                var targetData = customDataTempTargetsData.get(target) || new HashMap();
                                 var output = targetData.get(name);
                                 if (output) {
                                     return output;
@@ -1917,16 +1921,7 @@ function CEPlaceholdersActivator() {
             if (identifier.startsWith("mysql_")) {
 				var args = identifier.substring("mysql_".length).split("_");
                 
-                if (args.length < 2) return "InvalidArguments";
-                
-                var jdbcUrl = args[0].trim().replaceAll("ᵕ", "_").replaceAll("╵", "%");
-            	var query = args[1].trim().replaceAll("ᵕ", "_").replaceAll("╵", "%");
-                
-                if (query.toLowerCase().startsWith("insert")) {
-                	return "OnlySelectionIsAllowed";
-                }
-                
-                var params = args.length >= 3 ? args[2].trim().replaceAll("ᵕ", "_").replaceAll("╵", "%").split(",") : [];
+                if (args.length < 1) return "InvalidArguments";
                 
                 function setAutoParam(stmt, index, val) {
                     try {
@@ -1964,52 +1959,137 @@ function CEPlaceholdersActivator() {
                         stmt.setString(index, val);
                     }
                 }
-
-                try {
-                    try {
-                        var conn = DriverManager.getConnection(jdbcUrl);
-                    } catch (e) {
-                        return "InvalidJDBCLink";
-                    }
-
-                    try {
-                        var stmt = conn.prepareStatement(query);
-                    } catch (e) {
-                        return "InvalidQuery";
-                    }
-
-                    for (var i = 0; i < params.length; i++) {
-                        setAutoParam(stmt, i + 1, params[i].trim());
-                    }
-
-                    var rs = stmt.executeQuery();
-                    var meta = rs.getMetaData();
-                    var columns = meta.getColumnCount();
-
-                    var results = [];
-
-                    while (rs.next()) {
-                        var row = [];
-                        for (var i = 1; i <= columns; i++) {
-                            var val = rs.getString(i);
-                            row.push(val !== null ? val : "null");
+                
+                var returnMethod = args[0].split(":")[0].trim();
+                switch (returnMethod) {
+                    case "SYNC":
+                        if (args.length < 3) return "InvalidArguments";
+                        
+                        var jdbcUrl = args[1].trim().replaceAll("ᵕ", "_").replaceAll("╵", "%");
+            			var query = args[2].trim().replaceAll("ᵕ", "_").replaceAll("╵", "%");
+                        
+                        if (query.toLowerCase().startsWith("insert") || query.toLowerCase().startsWith("update")) {
+                            return "OnlySelectionIsAllowed";
                         }
-                        results.push(row.join(","));
-                    }
+                        
+                        var params = args.length >= 4 ? args[3].trim().replaceAll("ᵕ", "_").replaceAll("╵", "%").split(",") : [];
+                        
+                        try {
+                            try {
+                                var conn = DriverManager.getConnection(jdbcUrl);
+                            } catch (e) {
+                                return "InvalidJDBCLink";
+                            }
 
-                    rs.close();
-                    stmt.close();
-                    conn.close();
+                            try {
+                                var stmt = conn.prepareStatement(query);
+                            } catch (e) {
+                                return "InvalidQuery";
+                            }
 
-                    return results.length > 0 ? results.join(";") : "NoResult";
+                            for (var i = 0; i < params.length; i++) {
+                                setAutoParam(stmt, i + 1, params[i].trim());
+                            }
 
-                } catch (e) {
-                    e.printStackTrace();
-                    if (e instanceof SQLException) {
-                        return "SQLException: " + e.getMessage && e.getMessage() ? e.getMessage() : e.message;
-                    } else {
-                        return "Error: " + e.getMessage && e.getMessage() ? e.getMessage() : e.message;
-                    }
+                            var rs = stmt.executeQuery();
+                            var meta = rs.getMetaData();
+                            var columns = meta.getColumnCount();
+
+                            var results = [];
+
+                            while (rs.next()) {
+                                var row = [];
+                                for (var i = 1; i <= columns; i++) {
+                                    var val = rs.getString(i);
+                                    row.push(val !== null ? val : "null");
+                                }
+                                results.push(row.join(","));
+                            }
+
+                            rs.close();
+                            stmt.close();
+                            conn.close();
+
+                            return results.length > 0 ? results.join(";") : "";
+                        } catch (e) {
+                            e.printStackTrace();
+                            if (e instanceof SQLException) {
+                                return "SQLException: " + e.getMessage && e.getMessage() ? e.getMessage() : e.message;
+                            } else {
+                                return "Error: " + e.getMessage && e.getMessage() ? e.getMessage() : e.message;
+                            }
+                        }
+                        break;
+                    case "ASYNC":
+                 		var returnKey = args[0].split(":")[1].trim();
+                        if (args.length < 2) return mysqlResultsCache.containsKey(returnKey) ? mysqlResultsCache.get(returnKey) : "";
+                        if (args.length < 3) return "InvalidArguments";
+                        
+                        var jdbcUrl = args[1].trim().replaceAll("ᵕ", "_").replaceAll("╵", "%");
+            			var query = args[2].trim().replaceAll("ᵕ", "_").replaceAll("╵", "%");
+                        
+                        if (query.toLowerCase().startsWith("insert") || query.toLowerCase().startsWith("update")) {
+                            return "OnlySelectionIsAllowed";
+                        }
+                        
+                        var params = args.length >= 4 ? args[3].trim().replaceAll("ᵕ", "_").replaceAll("╵", "%").split(",") : [];
+                        
+                        mysqlResultsCache.put(returnKey, "Loading...");
+                        Bukkit.getScheduler().runTaskAsynchronously(plugin, new (Java.extend(Runnable, {
+                            run: function() {
+                                try {
+                                    try {
+                                        var conn = DriverManager.getConnection(jdbcUrl);
+                                    } catch (e) {
+                                        mysqlResultsCache.put(returnKey, "InvalidJDBCLink");
+                                        return;
+                                    }
+
+                                    try {
+                                        var stmt = conn.prepareStatement(query);
+                                    } catch (e) {
+                                        mysqlResultsCache.put(returnKey, "InvalidQuery");
+                                        return;
+                                    }
+
+                                    for (var i = 0; i < params.length; i++) {
+                                        setAutoParam(stmt, i + 1, params[i].trim());
+                                    }
+
+                                    var rs = stmt.executeQuery();
+                                    var meta = rs.getMetaData();
+                                    var columns = meta.getColumnCount();
+
+                                    var results = [];
+
+                                    while (rs.next()) {
+                                        var row = [];
+                                        for (var i = 1; i <= columns; i++) {
+                                            var val = rs.getString(i);
+                                            row.push(val !== null ? val : "null");
+                                        }
+                                        results.push(row.join(","));
+                                    }
+
+                                    rs.close();
+                                    stmt.close();
+                                    conn.close();
+
+                                    var resultString = results.length > 0 ? results.join(";") : "";
+                                    mysqlResultsCache.put(returnKey, resultString);
+                                } catch (e) {
+                                    e.printStackTrace();
+                                    if (e instanceof SQLException) {
+                                        return "SQLException: " + e.message;
+                                    } else {
+                                        return "Error: " + e.message;
+                                    }
+                                }
+                            }
+                        }))());
+                        break;
+                    default:
+                        return "InvaildMethod";
                 }
             }
             
