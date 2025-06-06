@@ -2021,7 +2021,7 @@ function CEPlaceholdersActivator() {
                         }
                         break;
                     case "ASYNC":
-                 		var returnKey = args[0].split(":")[1].trim();
+                 	var returnKey = args[0].split(":")[1];
                         if (args.length < 2) return mysqlResultsCache.containsKey(returnKey) ? mysqlResultsCache.get(returnKey) : "";
                         if (args.length < 3) return "InvalidArguments";
                         
