@@ -21,8 +21,11 @@ var InventoryType = Java.type("org.bukkit.event.inventory.InventoryType");
 var ItemStack = Java.type("org.bukkit.inventory.ItemStack");
 var InventoryHolder = Java.type("org.bukkit.inventory.InventoryHolder");
 var BlockInventoryHolder = Java.type("org.bukkit.inventory.BlockInventoryHolder");
+var BlockStateMeta = Java.type("org.bukkit.inventory.meta.BlockStateMeta");
 var HumanEntity = Java.type("org.bukkit.entity.HumanEntity");
+var EquipmentSlot = Java.type("org.bukkit.inventory.EquipmentSlot");
 var Merchant = Java.type("org.bukkit.inventory.Merchant");
+var AbstractVillager = Java.type("org.bukkit.entity.AbstractVillager");
 var Material = Java.type("org.bukkit.Material");
 var HashMap = Java.type("java.util.HashMap");
 var File = Java.type("java.io.File");
@@ -45,7 +48,7 @@ function CEmanageInventory() {
         execute: function(player, actionLine, minecraftEvent) {
             var args = actionLine.split(";");
             if (args.length < 2) {
-                Bukkit.getLogger().warning("[CEActions] MANAGE_INVENTORY ACTION: Invalid actionLine format! CORRECT FORMAT: manage_inventory: action:<action (save|open|delete, you can add ? before the action to use the temporary inventories storage, that is, until server restart, note that the 'open' or 'delete', for example, can not be used to open or delete inventory saved with '?save', and the logic will be the same for other action combinations)>;(can be skipped in case of open) inventory:<inventory_id (indicates by which id/name the inventory will be used)>;(optional, only in case of open) fake:<true|false (indicates whether the real functionality of the inventory will persist or not, for example with anvil - it can be just visual inventory or real inventory with all functions)>;(optional, only in case of save or open) owner:<entity_uuid|player_name|world,x,y,z (indicates which inventory will be used (for example of some player), if specified, all other properties will be ignored, you also can use ^ before the nickname to use the open player's inventory)>;(optional, only in case of save or open) holder:<inventory_holder (world,x,y,z|entity_uuid|player_name)>;(only in case of open) target:<player (for which player the inventory will be opened)>;(only in case of save or open) typeOrSize:<inventory_type (for example: CHEST) or integer size (must be a multiple of 9 between 9 and 54 slots, for example: 18)>;(optional, only in case of save or open) title:<inventory_title>");
+                Bukkit.getLogger().warning("[CEActions] MANAGE_INVENTORY ACTION: Invalid actionLine format! CORRECT FORMAT: manage_inventory: action:<action (save|open|delete, you can add ? before the action to use the temporary inventories storage, that is, until server restart, note that the 'open' or 'delete', for example, can not be used to open or delete inventory saved with '?save', and the logic will be the same for other action combinations)>;(can be skipped in case of open) inventory:<inventory_id (indicates by which id/name the inventory will be used)>;(optional, only in case of open) fake:<true|false (indicates whether the real functionality of the inventory will persist or not, for example with anvil - it can be just visual inventory or real inventory with all functions)>;(optional, only in case of save or open) owner:<entity_uuid|player_name|world,x,y,z (indicates which inventory will be used (for example of some player), if specified, all other properties will be ignored, you also can use ^ before the nickname to use the open player's inventory, also you can use |<slot (indices or named slots)> after to get inventory of the some item (for example, shulker box))>;(optional, only in case of save or open) holder:<inventory_holder (world,x,y,z|entity_uuid|player_name)>;(only in case of open) target:<player (for which player the inventory will be opened)>;(only in case of save or open) typeOrSize:<inventory_type (for example: CHEST) or integer size (must be a multiple of 9 between 9 and 54 slots, for example: 18)>;(optional, only in case of save or open) title:<inventory_title>");
                 return;
             }
             
@@ -198,7 +201,7 @@ function CEmanageInventory() {
                 try {
                     var uuid = java.util.UUID.fromString(identifier);
                     var entityHolder = Bukkit.getEntity(uuid);
-                    if (entityHolder && entityHolder instanceof InventoryHolder) return returnUUID ? entityHolder.getUniqueId() : entityHolder;
+                    if (entityHolder && (entityHolder instanceof InventoryHolder || entityHolder.getEquipment)) return returnUUID ? entityHolder.getUniqueId() : entityHolder;
                 } catch (e) {
                     if (identifier.indexOf(",") !== -1) {
                         var parts = identifier.split(",");
@@ -239,22 +242,63 @@ function CEmanageInventory() {
                     var invData = null;
                     if (params.owner) {
                         var opened = params.owner.startsWith("^");
-                        var owner = parseInventoryHolder((opened ? params.owner.substring(1) : params.owner), false);
+                        var itemInventory = params.owner.split("|");
+                        var itemSlot = null;
+                        
+                        try {
+                        	itemSlot = itemInventory.length === 2 ? !isNaN(itemInventory[1]) ? parseInt(itemInventory[1]) : EquipmentSlot.valueOf(itemInventory[1]) : null;
+                        } catch (e) {
+                            itemSlot = null;
+                        }
+                        
+                        var preParsedOwner = params.owner;
+                        if (opened) preParsedOwner = params.owner.substring(1);
+                        if (itemSlot != null) preParsedOwner = preParsedOwner.split("|")[0];
+                        
+                        var owner = parseInventoryHolder(preParsedOwner, false);
                         if (owner) {
-                            inv = opened && owner instanceof HumanEntity ? owner.getOpenInventory().getTopInventory() : Material.matchMaterial(owner.material) ? owner.material : owner.getInventory();
-                            if (inv.getSize && !(owner instanceof HumanEntity) && !(owner instanceof BlockInventoryHolder) && (inv.getSize() < 9 || inv.getSize() > 54 || inv.getSize() % 9 !== 0)) {
-                                Bukkit.getLogger().warning("[CEActions] MANAGE_INVENTORY ACTION: Invalid owner's inventory size.");
-                            } else {
-                                if (Material.matchMaterial(inv)) {
-                                    if (validMaterialsAndInventoriesMap[inv]) invData = { "holder": parseInventoryHolder(params.holder, true), "typeOrSize": validMaterialsAndInventoriesMap[inv], "constantType": validMaterialsAndInventoriesMap[inv], "title": params.title || inv };
+                            function returnItemInventory(inventory, slot) {
+                                if (slot != null) {
+                                    try {
+                                        var item = inventory.getItem(slot);
+                                        var meta = item ? item.getItemMeta() : null;
+                                        if (meta && meta instanceof BlockStateMeta && meta.hasBlockState()) {
+                                            var state = meta.getBlockState();
+                                            if (state && state.getInventory) return state.getInventory();
+                                        }
+                                    } catch (e) {
+                                        return null;
+                                    }
                                 }
-                                else invData = { "holder": parseInventoryHolder(params.holder, true) || owner.getUniqueId(), "typeOrSize": inv.getSize(), "constantType": inv.getType(), "title": params.title || ((parseInventoryHolder(params.holder, false) || owner).getName() + "'s inventory") };
+                                return null;
+                            }
+                            
+                            if (opened && owner instanceof HumanEntity) {
+                                inv = owner.getOpenInventory().getTopInventory();
+                                inv = returnItemInventory(inv, itemSlot) || inv;
+                            } else if (Material.matchMaterial(owner.material)) {
+                                inv = owner.material;
+                            } else {
+                            	inv = owner.getInventory ? owner.getInventory() : null;
+                                inv = returnItemInventory(owner.getInventory ? owner.getInventory() : owner.getEquipment(), itemSlot) || inv;
+                            }
+                            if (inv) {
+                                if (inv.getSize && !(owner instanceof HumanEntity) && !(owner instanceof BlockInventoryHolder) && !(owner instanceof AbstractVillager) && (inv.getSize() < 9 || inv.getSize() > 54 || inv.getSize() % 9 !== 0)) {
+                                    Bukkit.getLogger().warning("[CEActions] MANAGE_INVENTORY ACTION: Invalid owner's inventory size.");
+                                } else {
+                                    if (Material.matchMaterial(inv)) {
+                                        if (validMaterialsAndInventoriesMap[inv]) invData = { "holder": parseInventoryHolder(params.holder, true), "typeOrSize": validMaterialsAndInventoriesMap[inv], "constantType": validMaterialsAndInventoriesMap[inv], "title": params.title || inv };
+                                    } else invData = { "holder": parseInventoryHolder(params.holder, true) || (owner.getUniqueId ? owner.getUniqueId() : preParsedOwner), "typeOrSize": inv.getSize(), "constantType": inv.getType(), "title": params.title || ((parseInventoryHolder(params.holder, false) || owner).getName ? (parseInventoryHolder(params.holder, false) || owner).getName() : preParsedOwner + "'s inventory") };
+                                }
+                        	} else {
+                                Bukkit.getLogger().warning("[CEActions] MANAGE_INVENTORY ACTION: Invalid inventory type.");
+                            	return;
                             }
                         }
                     } else {
                         try {
                             if (isNaN(params.typeOrSize) && !(InventoryType.valueOf(params.typeOrSize).isCreatable())) {
-                                Bukkit.getLogger().warning("[CEActions] MANAGE_INVENTORY ACTION: InventoryType '" + params.typeOrSize + "' is not creatable.");
+                                Bukkit.getLogger().warning("[CEActions] MANAGE_INVENTORY ACTION: Inventory type '" + params.typeOrSize + "' is not creatable.");
                                 return;
                             }
                             if (!isNaN(params.typeOrSize) && (params.typeOrSize < 9 || params.typeOrSize > 54 || params.typeOrSize % 9 !== 0)) {
@@ -325,7 +369,7 @@ function CEmanageInventory() {
                                     else if (inv) targetPlayer.openInventory(inv);
                                     break;
                                 case InventoryType.MERCHANT:
-                                    if (targetPlayer.openMerchant && invData.holder.getInventory() instanceof Merchant) targetPlayer.openMerchant(invData.holder, true);
+                                    if (targetPlayer.openMerchant && invLoc instanceof Merchant) targetPlayer.openMerchant(invLoc, forceOpen);
                                     else if (inv) targetPlayer.openInventory(inv);
                                     break;
                                 case InventoryType.SMITHING:
@@ -356,26 +400,71 @@ function CEmanageInventory() {
 					var inv = null;
                     if (params.owner) {
                         var opened = params.owner.startsWith("^");
-                        var owner = parseInventoryHolder((opened ? params.owner.substring(1) : params.owner), false);
+                        var itemInventory = params.owner.split("|");
+                        var itemSlot = null;
+                        
+                        try {
+                        	itemSlot = itemInventory.length === 2 ? !isNaN(itemInventory[1]) ? parseInt(itemInventory[1]) : EquipmentSlot.valueOf(itemInventory[1]) : null;
+                        } catch (e) {
+                            itemSlot = null;
+                        }
+                        
+                        var preParsedOwner = params.owner;
+                        if (opened) preParsedOwner = params.owner.substring(1);
+                        if (itemSlot != null) preParsedOwner = preParsedOwner.split("|")[0];
+                        
+                        var owner = parseInventoryHolder(preParsedOwner, false);
                         if (owner) {
-                            inv = opened && owner instanceof HumanEntity ? owner.getOpenInventory().getTopInventory() : Material.matchMaterial(owner.material) ? owner.material : owner.getInventory();
-                            if (inv.getSize && !(owner instanceof HumanEntity) && !(owner instanceof BlockInventoryHolder) && (inv.getSize() < 9 || inv.getSize() > 54 || inv.getSize() % 9 !== 0)) {
-                                Bukkit.getLogger().warning("[CEActions] MANAGE_INVENTORY ACTION: Invalid owner's inventory size.");
-                            } else {
-                                if (Material.matchMaterial(inv)) {
-                                    var newInv = null;
+                            function returnItemInventory(inventory, slot) {
+                                if (slot != null) {
                                     try {
-                                    	var newInv = Bukkit.createInventory(null, validMaterialsAndInventoriesMap[inv], params.title || "Inventory");
-                                    } catch (e) {}
-                                    openInventory(newInv, Material.matchMaterial(inv), owner.location, false);
-                                }
-                                else {
-                                    if (!(inv.getType().isCreatable())) {
-                                        Bukkit.getLogger().warning("[CEActions] MANAGE_INVENTORY ACTION: InventoryType '" + inv.getType() + "' is not creatable.");
-                                        return;
+                                        var item = inventory.getItem(slot);
+                                        var meta = item ? item.getItemMeta() : null;
+                                        if (meta && meta instanceof BlockStateMeta && meta.hasBlockState()) {
+                                            var state = meta.getBlockState();
+                                            if (state && state.getInventory) return state.getInventory();
+                                        }
+                                    } catch (e) {
+                                        return null;
                                     }
-                                    targetPlayer.openInventory(inv);
                                 }
+                                return null;
+                            }
+                            
+                            if (opened && owner instanceof HumanEntity) {
+                                inv = owner.getOpenInventory().getTopInventory();
+                                inv = returnItemInventory(inv, itemSlot) || inv;
+                            } else if (Material.matchMaterial(owner.material)) {
+                                inv = owner.material;
+                            } else {
+                            	inv = owner.getInventory ? owner.getInventory() : null;
+                                inv = returnItemInventory(owner.getInventory ? owner.getInventory() : owner.getEquipment(), itemSlot) || inv;
+                            }
+                            if (inv) {
+                                if (inv.getSize && !(owner instanceof HumanEntity) && !(owner instanceof BlockInventoryHolder) && !(owner instanceof AbstractVillager) && (inv.getSize() < 9 || inv.getSize() > 54 || inv.getSize() % 9 !== 0)) {
+                                    Bukkit.getLogger().warning("[CEActions] MANAGE_INVENTORY ACTION: Invalid owner's inventory size.");
+                                } else {
+                                    if (Material.matchMaterial(inv)) {
+                                        var newInv = null;
+                                        try {
+                                        	newInv = Bukkit.createInventory(null, validMaterialsAndInventoriesMap[inv], params.title || "Inventory");
+                                        } catch (e) {}
+                                        openInventory(newInv, Material.matchMaterial(inv), owner.location, false);
+                                    } else if (owner instanceof Merchant) {
+                                        var merchant = Bukkit.createMerchant(owner.getName());
+                                        merchant.setRecipes(owner.getRecipes());
+                                        openInventory(null, InventoryType.MERCHANT, merchant, true);
+                                    } else {
+                                        if (!(inv.getType().isCreatable())) {
+                                            Bukkit.getLogger().warning("[CEActions] MANAGE_INVENTORY ACTION: InventoryType '" + inv.getType() + "' is not creatable.");
+                                            return;
+                                        }
+                                        targetPlayer.openInventory(inv);
+                                    }
+                                }
+                            } else {
+                                Bukkit.getLogger().warning("[CEActions] MANAGE_INVENTORY ACTION: Invalid inventory type.");
+                            	return;
                             }
                             break;
                         }
@@ -390,6 +479,7 @@ function CEmanageInventory() {
                         }
                         
                         var holder = parseInventoryHolder(invData.holder, false);
+                        holder = holder && holder.getEquipment ? null : holder;
                         
 						if (validInventoryTypes.indexOf(InventoryType.valueOf(invData.constantType)) !== -1) {
                             var newInv = null;
@@ -431,7 +521,7 @@ function CEmanageInventory() {
                     } else {
                         try {
                             if (isNaN(params.typeOrSize) && !(InventoryType.valueOf(params.typeOrSize).isCreatable())) {
-                                Bukkit.getLogger().warning("[CEActions] MANAGE_INVENTORY ACTION: InventoryType '" + params.typeOrSize + "' is not creatable.");
+                                Bukkit.getLogger().warning("[CEActions] MANAGE_INVENTORY ACTION: Inventory type '" + params.typeOrSize + "' is not creatable.");
                                 return;
                             }
                             if (!isNaN(params.typeOrSize) && (params.typeOrSize < 9 || params.typeOrSize > 54 || params.typeOrSize % 9 !== 0)) {
