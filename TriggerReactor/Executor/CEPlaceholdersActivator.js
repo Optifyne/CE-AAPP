@@ -61,6 +61,7 @@ var pluginString = "TriggerReactor";
 var plugin = Bukkit.getPluginManager().getPlugin(pluginString);
 var Runnable = Java.type("java.lang.Runnable");
 var HashMap = Java.type("java.util.HashMap");
+var Structure = Java.type("org.bukkit.generator.structure.Structure");
 
 var customDataTempGlobalData = new HashMap();
 var customDataTempTargetsData = new HashMap();
@@ -329,21 +330,21 @@ function CEPlaceholdersActivator() {
                         return meta.hasCustomModelData() ? meta.getCustomModelData() : "None";
                     case "itemsAdder":
                         if (!itemsAdderPlugin) {
-                        	return "[CEPlaceholders] ITEM PLACEHOLDER: ItemsAdder plugin is not supported because it is not installed!";
+                        	return "ItemsAdderPluginIsMissing";
                         } else {
             				var itemsAdderStack = Java.type("dev.lone.itemsadder.api.CustomStack");
                         	return itemsAdderStack.byItemStack(item) ? itemsAdderStack.byItemStack(item) : "No";
                         }
                     case "oraxen":
                         if (!oraxenPlugin) {
-                        	return "[CEPlaceholders] ITEM PLACEHOLDER: Oraxen plugin is not supported because it is not installed!";
+                        	return "OraxenPluginIsMissing";
                         } else {
             				var oraxenStack = Java.type("io.th0rgal.oraxen.api.OraxenItems");
                         	return oraxenStack.getIdByItem(item) ? oraxenStack.getIdByItem(item) : "No";
                         }
 					case "nexo":
                         if (!nexoPlugin) {
-                        	return "[CEPlaceholders] ITEM PLACEHOLDER: Nexo plugin is not supported because it is not installed!";
+                        	return "NexoPluginIsMissing";
                         } else {
             				var nexoStack = Java.type("com.nexomc.nexo.api.NexoItems");
                         	return nexoStack.idFromItem(item) ? nexoStack.idFromItem(item) : "No";
@@ -359,7 +360,7 @@ function CEPlaceholdersActivator() {
             
             if (identifier.startsWith("lp_has_permission_in_contexts_") || identifier.startsWith("lp_get_permission_contexts_")) {
                 if (!luckpermsPlugin) {
-                	return "[CEPlaceholders] LP PLACEHOLDER: Placeholder was skipped because LuckPerms plugin is missing!";
+                	return "LuckPermsPluginIsMissing";
             	} else {
                     var LuckPerms = Java.type("net.luckperms.api.LuckPerms");
                     var MutableContextSet = Java.type("net.luckperms.api.context.MutableContextSet");
@@ -1286,7 +1287,7 @@ function CEPlaceholdersActivator() {
             
             if (identifier.startsWith("realname")) {
                 if (!essentialsPlugin) {
-                	return "[CEPlaceholders] REALNAME PLACEHOLDER: Placeholder was skipped because EssentialsX plugin is missing!";
+                	return "EssetialsPluginIsMissing";
             	} else {
             		var FormatUtil = Java.type("com.earth2me.essentials.utils.FormatUtil");
                     var foundUser = false;
@@ -1889,6 +1890,7 @@ function CEPlaceholdersActivator() {
                 } catch (e) {
                     return "InvalidWorld";
                 }
+                if (!world) return "InvalidWorld";
                 
                 var location = null;
                 try {
@@ -1896,6 +1898,7 @@ function CEPlaceholdersActivator() {
                 } catch (e) {
                     return "LocationNotFound";
                 }
+                if (!location) return "LocationNotFound";
                 
                 var block = null;
                 try {
@@ -1903,6 +1906,7 @@ function CEPlaceholdersActivator() {
                 } catch (e) {
                     return "BlockNotFound";
                 }
+                if (!block) return "BlockNotFound";
                 
                 switch (action) {
 					case "fromBlocks":
@@ -2021,7 +2025,7 @@ function CEPlaceholdersActivator() {
                         }
                         break;
                     case "ASYNC":
-                 	var returnKey = args[0].split(":")[1];
+                 		var returnKey = args[0].split(":")[1];
                         if (args.length < 2) return mysqlResultsCache.containsKey(returnKey) ? mysqlResultsCache.get(returnKey) : "";
                         if (args.length < 3) return "InvalidArguments";
                         
@@ -2091,6 +2095,129 @@ function CEPlaceholdersActivator() {
                     default:
                         return "InvaildMethod";
                 }
+            }
+            
+            // ===================== GET STRUCTURE BY LOCATION ===================== //
+            
+            if (identifier.startsWith("structure_")) {
+				var args = identifier.substring("structure_".length).split("_");
+                
+                if (args.length < 1) return "InvalidArguments";
+                
+                var actionRaw = args[0].trim().split(":");
+                var action = actionRaw[0];
+                var unsafe = false;
+                var unsafeSize = 10;
+                if (actionRaw.length > 1) unsafe = actionRaw[1] === "unsafe";
+                if (actionRaw.length > 2 && !isNaN(actionRaw[2])) unsafeSize = parseInt(actionRaw[2]);
+                
+                switch (action) {
+					case "get":
+                        args = args.slice(0, 1).concat(args.slice(1).join("_"));
+                        var location = args[1].trim().split(",");
+                        var x = parseFloat(location[0]);
+                        var y = parseFloat(location[1]);
+                        var z = parseFloat(location[2]);
+                        var worldName = location[3];
+
+                        var world = null;
+                        try {
+                            world = Bukkit.getWorld(worldName);
+                        } catch (e) {
+                            return "InvalidWorld";
+                        }
+                        if (!world) return "InvalidWorld";
+
+                        var location = null;
+                        try {
+                            location = new Location(world, x, y, z);
+                        } catch (e) {
+                            return "LocationNotFound";
+                        }
+                        if (!location) return "LocationNotFound";
+                        
+                        if (location.getChunk().getStructures) {
+                            var structures = location.getChunk().getStructures();
+                            if (structures != null && !structures.isEmpty()) {
+                                var iter = structures.iterator();
+                                while (iter.hasNext()) {
+                                    var s = iter.next();
+                                    if (unsafe) {
+                                        for (var i = x - unsafeSize; i <= x + unsafeSize; i++) {
+                                            for (var j = y - unsafeSize; j <= y + unsafeSize; j++) {
+                                                for (var k = z - unsafeSize; k <= z + unsafeSize; k++) {
+                                                    if (s.getBoundingBox().contains(i, j, k)) {
+                                                        return s.getStructure().getKey().getKey().toUpperCase();
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        if (s.getBoundingBox().contains(x, y, z)) {
+                                            return s.getStructure().getKey().getKey().toUpperCase();
+                                        }
+                                    }
+                                }
+                            }
+                        } else return "Only1.20.4+";
+                        break;
+                    case "check":
+                        args = args.slice(0, 2).concat(args.slice(2).join("_"));
+                		if (args.length < 2) return "InvalidArguments";
+                        var type = args[1].trim().replaceAll("-", "_").toUpperCase();
+                        var location = args[2].trim().split(",");
+                        var x = parseFloat(location[0]);
+                        var y = parseFloat(location[1]);
+                        var z = parseFloat(location[2]);
+                        var worldName = location[3];
+                        
+                        var world = null;
+                        try {
+                            world = Bukkit.getWorld(worldName);
+                        } catch (e) {
+                            return "InvalidWorld";
+                        }
+                        if (!world) return "InvalidWorld";
+
+                        var location = null;
+                        try {
+                            location = new Location(world, x, y, z);
+                        } catch (e) {
+                            return "LocationNotFound";
+                        }
+                        if (!location) return "LocationNotFound";
+                        
+                        if (location.getChunk().getStructures) {
+                            var structures = location.getChunk().getStructures();
+                            if (structures != null && !structures.isEmpty()) {
+                                var iter = structures.iterator();
+                                while (iter.hasNext()) {
+                                    var s = iter.next();
+                                    if (unsafe) {
+                                        for (var i = x - unsafeSize; i <= x + unsafeSize; i++) {
+                                            for (var j = y - unsafeSize; j <= y + unsafeSize; j++) {
+                                                for (var k = z - unsafeSize; k <= z + unsafeSize; k++) {
+                                                    if (s.getBoundingBox().contains(i, j, k) && s.getStructure().getKey().getKey().toString().toUpperCase() === type) {
+                                                        return true;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        if (s.getBoundingBox().contains(x, y, z) && s.getStructure().getKey().getKey().toString().toUpperCase() === type) {
+                                            return true;
+                                        }
+                                    }
+                                }
+                                return false;
+                            }
+                        } else return "Only1.20.4+";
+                        break;
+                    default:
+                        return "InvalidAction";
+                }
+                
+                return "None";
             }
             
             return null;
