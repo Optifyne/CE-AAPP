@@ -160,7 +160,7 @@ function CEPlaceholdersActivator() {
                         
                 if (slotIndex === "CURSOR") item = target.getItemOnCursor ? target.getItemOnCursor() : null;
                 if (opened && target instanceof HumanEntity) inventory = target.getOpenInventory().getTopInventory();
-                
+
                 if (!item) {
                     try {
                         item = !isNaN(slotIndex) ? inventory.getItem(slotIndex) : inventory.getItem(EquipmentSlot.valueOf(slotIndex));
@@ -175,6 +175,8 @@ function CEPlaceholdersActivator() {
                     var meta = item.getItemMeta();
                     if (!meta || !meta.hasLore()) return "";
                     var lore = meta.getLore().toArray();
+                    if (mode.endsWith("Amount")) return lore.length;
+                    
                     var selectedLore = "";
                     
                     if (mode.indexOf(":") !== -1) {
@@ -1866,6 +1868,13 @@ function CEPlaceholdersActivator() {
                         }
                         
                         return result;
+                    case "hasAI":
+                        if (target instanceof LivingEntity) {
+                            return target.hasAI();
+                        }
+                        return "TargetIsNotLivingEntity";
+                    case "tags":
+                    	return target.getScoreboardTags();
                     default:
                         return "InvalidAction";
                 }
@@ -2218,6 +2227,20 @@ function CEPlaceholdersActivator() {
                 }
                 
                 return "None";
+            }
+            
+            // ===================== REPEATING PLACEHOLDER ===================== //
+            
+            if (identifier.startsWith("repeat_")) {
+				var args = identifier.substring("repeat_".length).split("_");
+                
+                if (args.length < 2) return "InvalidArguments";
+                
+                var text = args[0].replaceAll("ᵕ", "_");
+                if (isNaN(args[1])) return "AmountIsNotANumber";
+                var amount = parseInt(args[1]);
+				
+                return text.repeat(amount);
             }
             
             return null;
