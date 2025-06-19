@@ -31,6 +31,7 @@ var InventoryHolder = Java.type("org.bukkit.inventory.InventoryHolder");
 var HumanEntity = Java.type("org.bukkit.entity.HumanEntity");
 var NamespacedKey = Java.type("org.bukkit.NamespacedKey");
 var PersistentDataType = Java.type("org.bukkit.persistence.PersistentDataType");
+var EnchantmentStorageMeta = Java.type("org.bukkit.inventory.meta.EnchantmentStorageMeta");
 
 var supportsNewMaxStackSize = false;
 
@@ -50,7 +51,7 @@ function CEchangeItem() {
     var ChangeItemAction = Java.extend(ConditionalEventsAction, {
         execute: function(player, actionLine, minecraftEvent) {
             if (!actionLine || actionLine.trim() === "") {
-                    Bukkit.getLogger().warning("[CEActions] CHANGE_ITEM ACTION: Invalid actionLine format! CORRECT FORMAT: change_item: target:<entity_uuid|player_name|world,x,y,z>;(optional) source:<entity_uuid|player_name|world,x,y,z>;source_slot:<slot (for source slot, may be only one, you also can specify like OPENED|<slot> to obtain the slot in the player’s open inventory or CURSOR to obtain an item at the cursor)>;(optional) switch:<true|false (for source and target)>;action:<action (may be set, remove or reset)>;material:<material (to change all items with the specified material, may be several separated by comma, you also can specify like OPENED|<material> to obtain the material in the player’s open inventory)>;slot:<slot (to change an items by slots, may be several separated by comma, slots can be either name (for example: HAND, CHEST or FEET) or numeric, CURSOR slot is available to change an item at the cursor, also you can specify like OPENED|<slot> to obtain the slot in the player’s open inventory)>;(optional) newMaterial:<new_material (material to which you want to change current item)>;(optional) durability:<durability>;(optional) name:<name>;(optional) lore:<lore (in case of set: line1|line2|line3, in case of remove just numbers separated by commas, for example: 1,4,7)>;(optional) enchantments:<ENCHANTMENT_1=LEVEL,ENCHANTMENT_2=LEVEL>;(optional) flags:<flags (for example: HIDE_ENCHANTS)>;(optional) amount:<amount>;(optional) counts:<counts (indicates how many elements will be changed)>;(optional) customModelData:<customModelData>;(optional) dataContainer:<name>,<id>,<type (in case of set)>,<value (in case of set, for arrays wrap in [ ])>;(optional) maxStack:<maxStack (above 1 and below 99, but values above 64 will not be displayed visually, only when setting amount; maxStack is only for Spigot 1.20.5+!)>;(optional) order:<order (to specify the order of the “source”, “slot” and “material” parameters execution through the comma)>;(optional) overrideOrderCountsOverGlobalCounts:<true|false (if you want local order parameters, if specified, to take precedence over the global one)>");
+                    Bukkit.getLogger().warning("[CEActions] CHANGE_ITEM ACTION: Invalid actionLine format! CORRECT FORMAT: change_item: target:<entity_uuid|player_name|world,x,y,z>;(optional) source:<entity_uuid|player_name|world,x,y,z>;source_slot:<slot (for source slot, may be only one, you also can specify like OPENED|<slot> to obtain the slot in the player’s open inventory or CURSOR to obtain an item at the cursor)>;(optional) switch:<true|false (for source and target)>;action:<action (may be set, remove or reset)>;material:<material (to change all items with the specified material, may be several separated by comma, you also can specify like OPENED|<material> to obtain the material in the player’s open inventory)>;slot:<slot (to change an items by slots, may be several separated by comma, slots can be either name (for example: HAND, CHEST or FEET) or numeric, CURSOR slot is available to change an item at the cursor, also you can specify like OPENED|<slot> to obtain the slot in the player’s open inventory)>;(optional) newMaterial:<new_material (material to which you want to change current item)>;(optional) durability:<durability>;(optional) name:<name>;(optional) lore:<lore (in case of set: line1|line2|line3, in case of remove just numbers separated by commas, for example: 1,4,7)>;(optional) enchantments:<ENCHANTMENT_1=LEVEL,ENCHANTMENT_2=LEVEL>;(optional) enchantmentsBook:<ENCHANTMENT_1=LEVEL,ENCHANTMENT_2=LEVEL>;(optional) flags:<flags (for example: HIDE_ENCHANTS)>;(optional) amount:<amount>;(optional) counts:<counts (indicates how many elements will be changed)>;(optional) customModelData:<customModelData>;(optional) dataContainer:<name>,<id>,<type (in case of set)>,<value (in case of set, for arrays wrap in [ ])>;(optional) maxStack:<maxStack (above 1 and below 99, but values above 64 will not be displayed visually, only when setting amount; maxStack is only for Spigot 1.20.5+!)>;(optional) order:<order (to specify the order of the “source”, “slot” and “material” parameters execution through the comma)>;(optional) overrideOrderCountsOverGlobalCounts:<true|false (if you want local order parameters, if specified, to take precedence over the global one)>");
                 return;
             }
 
@@ -750,20 +751,12 @@ function CEchangeItem() {
                 	}
 
                     if (o.startsWith("material") && o.contains("{") && o.contains("}") && (params.material || sourceMaterial)) {
-                        if (!params.action) {
-                            Bukkit.getLogger().warning("[CEActions] CHANGE_ITEM ACTION: Missing 'action' parameter!");
-                            return;
-                        }
                         processTargets("material", null, null, null, optionsEach, amountEach);
                         counts.material = 0;
                         amountEach.material++;
                     }
 
                     if (o.startsWith("slot") && o.contains("{") && o.contains("}") && params.slot) {
-                        if (!params.action) {
-                            Bukkit.getLogger().warning("[CEActions] CHANGE_ITEM ACTION: Missing 'action' parameter!");
-                            return;
-                        }
                         processTargets("slot", null, null, null, optionsEach, amountEach);
                         counts.slot = 0;
                         amountEach.slot++;
@@ -780,10 +773,6 @@ function CEchangeItem() {
                             }
                             break;
                         case "slot":
-                            if (!params.action) {
-                                Bukkit.getLogger().warning("[CEActions] CHANGE_ITEM ACTION: Missing 'action' parameter!");
-                                return;
-                            }
                             if (params.slot) {
                                 processTargets("slot", null, null, null, optionsEach, amountEach);
                                 counts.slot = 0;
@@ -791,10 +780,6 @@ function CEchangeItem() {
                             }
                             break;
                         case "material":
-                            if (!params.action) {
-                                Bukkit.getLogger().warning("[CEActions] CHANGE_ITEM ACTION: Missing 'action' parameter!");
-                                return;
-                            }
                             if (params.material || sourceMaterial) {
                                 processTargets("material", null, null, null, optionsEach, amountEach);
                                 counts.material = 0;
@@ -810,6 +795,10 @@ function CEchangeItem() {
             passing();
             
             function applyMetaChange(entity, inventory, slot, item, params, cursor, options, amount) {
+                if ((params.newMaterial || params.durability || params.name || params.lore || params.enchantments || params.flags || params.customModelData || params.dataContainer || params.amount || params.maxStack) && !params.action) {
+                    Bukkit.getLogger().warning("[CEActions] CHANGE_ITEM ACTION: Missing 'action' parameter!");
+                    return;
+                }
                     if (params.action == "set" && params.newMaterial) {
                         var newMaterial = Material.matchMaterial(params.newMaterial);
                         if (newMaterial != null) {
@@ -918,9 +907,8 @@ function CEchangeItem() {
                             enchantmentArgs.forEach(function (enchantmentStr) {
                                 var enchantmentName = enchantmentStr.split("=")[0].trim();
                                 var enchantment = Enchantment.getByName(enchantmentName.toUpperCase());
-
                                 if (enchantment != null) {
-                                    meta.removeEnchant(enchantment);
+                                	meta.removeEnchant(enchantment);
                                 } else {
                                     Bukkit.getLogger().warning("[CEActions] CHANGE_ITEM ACTION: Unknown enchantment " + enchantmentName + " (is this what enchantment is called on your server version?)");
                                 }
@@ -929,6 +917,42 @@ function CEchangeItem() {
                             meta.getEnchants().keySet().forEach(function(enchantment) {
                                 meta.removeEnchant(enchantment);
                             });
+                        }
+                        
+                        if (params.action == "set" && params.enchantmentsBook) {
+                            if (meta instanceof EnchantmentStorageMeta) {
+                                var enchantmentArgs = params.enchantmentsBook.split(",");
+                                enchantmentArgs.forEach(function (enchantmentStr) {
+                                    var parts = enchantmentStr.split("=");
+                                    var enchantmentName = parts[0].trim();
+                                    var enchantmentLevel = parseInt(parts[1].trim());
+                                    var enchantment = Enchantment.getByName(enchantmentName.toUpperCase());
+                                    if (enchantment != null) {
+                                        meta.addStoredEnchant(enchantment, enchantmentLevel, true);
+                                    } else {
+                                        Bukkit.getLogger().warning("[CEActions] CHANGE_ITEM ACTION: Unknown enchantment " + enchantmentName + " (is this what enchantment is called on your server version?)");
+                                    }
+                                });
+                            }
+                        } else if (params.action == "remove" && params.enchantmentsBook) {
+                            if (meta instanceof EnchantmentStorageMeta) {
+                                var enchantmentArgs = params.enchantmentsBook.split(",");
+                                enchantmentArgs.forEach(function (enchantmentStr) {
+                                    var enchantmentName = enchantmentStr.split("=")[0].trim();
+                                    var enchantment = Enchantment.getByName(enchantmentName.toUpperCase());
+                                    if (enchantment != null) {
+                                        meta.removeStoredEnchant(enchantment);
+                                    } else {
+                                        Bukkit.getLogger().warning("[CEActions] CHANGE_ITEM ACTION: Unknown enchantment " + enchantmentName + " (is this what enchantment is called on your server version?)");
+                                    }
+                                });
+                            }
+                        } else if (params.action == "reset" && params.enchantmentsBook) {
+                            if (meta instanceof EnchantmentStorageMeta) {
+                                meta.getStoredEnchants().keySet().forEach(function(enchantment) {
+                                    meta.removeStoredEnchant(enchantment);
+                                });
+                            }
                         }
 
                         if (params.action == "set" && params.flags) {
