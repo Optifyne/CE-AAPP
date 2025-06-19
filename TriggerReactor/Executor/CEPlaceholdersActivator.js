@@ -62,6 +62,7 @@ var plugin = Bukkit.getPluginManager().getPlugin(pluginString);
 var Runnable = Java.type("java.lang.Runnable");
 var HashMap = Java.type("java.util.HashMap");
 var Structure = Java.type("org.bukkit.generator.structure.Structure");
+var EnchantmentStorageMeta = Java.type("org.bukkit.inventory.meta.EnchantmentStorageMeta");
 
 var customDataTempGlobalData = new HashMap();
 var customDataTempTargetsData = new HashMap();
@@ -201,12 +202,26 @@ function CEPlaceholdersActivator() {
                     return selectedLore.trim() || "InvalidIndex";
                 }
                 
-                if (mode.startsWith("enchantment") && !mode.startsWith("enchantments")) {
+                if (mode.startsWith("enchantment") && !mode.startsWith("enchantmentBook") && !mode.startsWith("enchantments")) {
                     if (mode.indexOf(":") === -1) return "InvalidEnchantment";
                     var enchantmentString = mode.split(":")[1].replaceAll("-", "_");
-                    if (!enchantmentString) return "InvalidEnchantment";
                     var enchantment = Enchantment.getByName(enchantmentString.toUpperCase());
+                    if (!enchantment) return "InvalidEnchantment";
+                    
                     return enchantment && item.containsEnchantment(enchantment) ? item.getEnchantmentLevel(enchantment) : "0";
+                }
+                
+                if (mode.startsWith("enchantmentBook")) {
+                    if (mode.indexOf(":") === -1) return "InvalidEnchantment";
+                        
+                    var meta = item.getItemMeta();
+                    if (!(meta instanceof EnchantmentStorageMeta)) return "ItemIsNotEnchantedBook";
+                        
+                    var enchantmentString = mode.split(":")[1].replaceAll("-", "_");
+                    var enchantment = Enchantment.getByName(enchantmentString.toUpperCase());
+                    if (!enchantment) return "InvalidEnchantment";
+                        
+                    return enchantment && meta.hasStoredEnchant(enchantment) ? meta.getStoredEnchantLevel(enchantment) : "0";
                 }
                 
                 if (mode.startsWith("dataContainer-")) {
@@ -296,6 +311,19 @@ function CEPlaceholdersActivator() {
                 switch (mode) {
                     case "enchantments":
                         var enchantments = item.getEnchantments();
+                        if (!enchantments || enchantments.isEmpty()) return "None";
+                        var enchantmentList = [];
+                        var keys = enchantments.keySet().toArray();
+                        for (var i = 0; i < keys.length; i++) {
+                            var entry = keys[i];
+                            enchantmentList.push(entry.getKey().getKey().toUpperCase() + "=" + enchantments.get(entry));
+                        }
+                        return enchantmentList.join(", ");
+                    case "enchantmentsBook":
+                        var meta = item.getItemMeta();
+                        if (!(meta instanceof EnchantmentStorageMeta)) return "ItemIsNotEnchantedBook";
+                        
+                        var enchantments = meta.getStoredEnchants();
                         if (!enchantments || enchantments.isEmpty()) return "None";
                         var enchantmentList = [];
                         var keys = enchantments.keySet().toArray();
