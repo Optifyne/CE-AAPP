@@ -869,26 +869,26 @@ function CEchangeItem() {
                         }
 
                         if (params.durability) {
-                            var durability = parseInt(params.durability);
+                            var durability = parseFloat(params.durability);
                             switch (params.action) {
                                 case "set":
-                                    meta.setDamage(item.getType().getMaxDurability() - durability);
+                                    meta.setDamage(parseInt(item.getType().getMaxDurability() - durability));
                                 	break;
                                 case "reset":
                                     meta.setDamage(0);
                                 	break;
                                 case "increase":
-                                    meta.setDamage(item.getType().getMaxDurability() - ((item.getType().getMaxDurability() - meta.getDamage()) + durability));
+                                    meta.setDamage(parseInt(item.getType().getMaxDurability() - ((item.getType().getMaxDurability() - meta.getDamage()) + durability)));
                                 	break;
                                 case "decrease":
-                                    meta.setDamage(item.getType().getMaxDurability() - ((item.getType().getMaxDurability() - meta.getDamage()) - durability));
+                                    meta.setDamage(parseInt(item.getType().getMaxDurability() - ((item.getType().getMaxDurability() - meta.getDamage()) - durability)));
                                     break;
                                 case "multiply":
-                                    meta.setDamage(item.getType().getMaxDurability() - ((item.getType().getMaxDurability() - meta.getDamage()) * durability));
+                                    meta.setDamage(parseInt(item.getType().getMaxDurability() - ((item.getType().getMaxDurability() - meta.getDamage()) * durability)));
                                     break;
                                 case "divide":
                             		if (durability === 0) Bukkit.getLogger().warning("[CEActions] CHANGE_ITEM ACTION: Can not divide by zero!");
-                                    else meta.setDamage(item.getType().getMaxDurability() - ((item.getType().getMaxDurability() - meta.getDamage()) / durability));
+                                    else meta.setDamage(parseInt(item.getType().getMaxDurability() - ((item.getType().getMaxDurability() - meta.getDamage()) / durability)));
                                     break;
                                 default:
                                     break;
@@ -1033,22 +1033,23 @@ function CEchangeItem() {
                         }
 
                         if (params.amount) {
-                            var amount = parseInt(params.amount);
+                            var amount = parseFloat(params.amount);
                             switch (params.action) {
                                 case "set":
-                                    item.setAmount(amount);
+                                    item.setAmount(parseInt(amount));
                                 	break;
                                 case "increase":
-                                    item.setAmount(item.getAmount() + amount);
+                                    item.setAmount(parseInt(item.getAmount() + amount));
                                 	break;
                                 case "decrease":
-                                    item.setAmount(item.getAmount() - amount);
+                                    item.setAmount(parseInt(item.getAmount() - amount));
                                     break;
                                 case "multiply":
-                                    item.setAmount(item.getAmount() * amount);
+                                    item.setAmount(parseInt(item.getAmount() * amount));
                                     break;
                                 case "divide":
-                                    item.setAmount(item.getAmount() / amount);
+                                    if (amount === 0) Bukkit.getLogger().warning("[CEActions] CHANGE_ITEM ACTION: Can not divide by zero!");
+                                    else item.setAmount(parseInt(item.getAmount() / amount));
                                     break;
                                 default:
                                     break;
