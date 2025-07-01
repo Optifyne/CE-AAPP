@@ -51,7 +51,7 @@ function CEchangeItem() {
     var ChangeItemAction = Java.extend(ConditionalEventsAction, {
         execute: function(player, actionLine, minecraftEvent) {
             if (!actionLine || actionLine.trim() === "") {
-                    Bukkit.getLogger().warning("[CEActions] CHANGE_ITEM ACTION: Invalid actionLine format! CORRECT FORMAT: change_item: target:<entity_uuid|player_name|world,x,y,z>;(optional) source:<entity_uuid|player_name|world,x,y,z>;source_slot:<slot (for source slot, may be only one, you also can specify like OPENED|<slot> and EC|<slot> to obtain the slot in the player’s open inventory or enderchest, or CURSOR to obtain an item at the cursor)>;(optional) switch:<true|false (for source and target)>;action:<action (may be set, remove or reset)>;material:<material (to change all items with the specified material, may be several separated by comma, you also can specify like OPENED|<material> and EC|<material> to obtain the material in the player’s open inventory or enderchest)>;slot:<slot (to change an items by slots, may be several separated by comma, slots can be either name (for example: HAND, CHEST or FEET) or numeric, CURSOR slot is available to change an item at the cursor, also you can specify like OPENED|<slot> and EC|<slot> to obtain the slot in the player’s open inventory or enderchest)>;(optional) newMaterial:<new_material (material to which you want to change current item)>;(optional) durability:<durability>;(optional) name:<name>;(optional) lore:<lore (in case of set: line1|line2|line3, in case of remove just numbers separated by commas, for example: 1,4,7)>;(optional) enchantments:<ENCHANTMENT_1=LEVEL,ENCHANTMENT_2=LEVEL>;(optional) enchantmentsBook:<ENCHANTMENT_1=LEVEL,ENCHANTMENT_2=LEVEL>;(optional) flags:<flags (for example: HIDE_ENCHANTS)>;(optional) amount:<amount>;(optional) counts:<counts (indicates how many elements will be changed)>;(optional) customModelData:<customModelData>;(optional) dataContainer:<name>,<id>,<type (in case of set)>,<value (in case of set, for arrays wrap in [ ])>;(optional) maxStack:<maxStack (above 1 and below 99, but values above 64 will not be displayed visually, only when setting amount; maxStack is only for Spigot 1.20.5+!)>;(optional) order:<order (to specify the order of the “source”, “slot” and “material” parameters execution through the comma)>;(optional) overrideOrderCountsOverGlobalCounts:<true|false (if you want local order parameters, if specified, to take precedence over the global one)>;(optional) cooldown:<ticks (to change the current cooldown of the item)>;(optional) cooldownBasic:<seconds (to change the basic cooldown of the item, float values may be too)>");
+                    Bukkit.getLogger().warning("[CEActions] CHANGE_ITEM ACTION: Invalid actionLine format! CORRECT FORMAT: change_item: target:<entity_uuid|player_name|world,x,y,z>;(optional) source:<entity_uuid|player_name|world,x,y,z>;source_slot:<slot (for source slot, may be only one, you also can specify like OPENED|<slot> and EC|<slot> to obtain the slot in the player’s open inventory or enderchest, or CURSOR to obtain an item at the cursor)>;(optional) switch:<true|false (for source and target)>;action:<action (may be set, remove, reset, increase, decrease, multiply or divide, but not all options support all actions)>;material:<material (to change all items with the specified material, may be several separated by comma, you also can specify like OPENED|<material> and EC|<material> to obtain the material in the player’s open inventory or enderchest)>;slot:<slot (to change an items by slots, may be several separated by comma, slots can be either name (for example: HAND, CHEST or FEET) or numeric, CURSOR slot is available to change an item at the cursor, also you can specify like OPENED|<slot> and EC|<slot> to obtain the slot in the player’s open inventory or enderchest)>;(optional) newMaterial:<new_material (material to which you want to change current item)>;(optional) durability:<durability>;(optional) name:<name>;(optional) lore:<lore (in case of set: line1|line2|line3, in case of remove just numbers separated by commas, for example: 1,4,7)>;(optional) enchantments:<ENCHANTMENT_1=LEVEL,ENCHANTMENT_2=LEVEL>;(optional) enchantmentsBook:<ENCHANTMENT_1=LEVEL,ENCHANTMENT_2=LEVEL>;(optional) flags:<flags (for example: HIDE_ENCHANTS)>;(optional) amount:<amount>;(optional) counts:<counts (indicates how many elements will be changed)>;(optional) customModelData:<customModelData>;(optional) dataContainer:<name>,<id>,<type (in case of set)>,<value (in case of set, for arrays wrap in [ ])>;(optional) maxStack:<maxStack (above 1 and below 99, but values above 64 will not be displayed visually, only when setting amount; maxStack is only for Spigot 1.20.5+!)>;(optional) order:<order (to specify the order of the “source”, “slot” and “material” parameters execution through the comma)>;(optional) overrideOrderCountsOverGlobalCounts:<true|false (if you want local order parameters, if specified, to take precedence over the global one)>;(optional) cooldown:<ticks (to change the current cooldown of the item)>;(optional) cooldownBasic:<seconds (to change the basic cooldown of the item, float values may be too)>");
                 return;
             }
 
@@ -827,7 +827,7 @@ function CEchangeItem() {
             passing();
             
             function applyMetaChange(entity, inventory, slot, item, params, cursor, options, amount) {
-                if ((params.newMaterial || params.durability || params.name || params.lore || params.enchantments || params.flags || params.customModelData || params.dataContainer || params.amount || params.maxStack) && !params.action) {
+                if ((params.newMaterial || params.durability || params.name || params.lore || params.enchantments || params.flags || params.customModelData || params.dataContainer || params.amount || params.maxStack || params.cooldown || params.cooldownBasic) && !params.action) {
                     Bukkit.getLogger().warning("[CEActions] CHANGE_ITEM ACTION: Missing 'action' parameter!");
                     return;
                 }
@@ -868,12 +868,31 @@ function CEchangeItem() {
                             return;
                         }
 
-                        if (params.action == "set" && params.durability) {
+                        if (params.durability) {
                             var durability = parseInt(params.durability);
-                            if (durability < 0) Bukkit.getLogger().warning("[CEActions] CHANGE_ITEM ACTION: Durability cannot be negative!");
-                            else meta.setDamage(item.getType().getMaxDurability() - durability);
-                        } else if (params.action == "reset" && params.durability) {
-                            meta.setDamage(0);
+                            switch (params.action) {
+                                case "set":
+                                    meta.setDamage(item.getType().getMaxDurability() - durability);
+                                	break;
+                                case "reset":
+                                    meta.setDamage(0);
+                                	break;
+                                case "increase":
+                                    meta.setDamage(item.getType().getMaxDurability() - ((item.getType().getMaxDurability() - meta.getDamage()) + durability));
+                                	break;
+                                case "decrease":
+                                    meta.setDamage(item.getType().getMaxDurability() - ((item.getType().getMaxDurability() - meta.getDamage()) - durability));
+                                    break;
+                                case "multiply":
+                                    meta.setDamage(item.getType().getMaxDurability() - ((item.getType().getMaxDurability() - meta.getDamage()) * durability));
+                                    break;
+                                case "divide":
+                            		if (durability === 0) Bukkit.getLogger().warning("[CEActions] CHANGE_ITEM ACTION: Can not divide by zero!");
+                                    else meta.setDamage(item.getType().getMaxDurability() - ((item.getType().getMaxDurability() - meta.getDamage()) / durability));
+                                    break;
+                                default:
+                                    break;
+                            }
                         }
                         
                         if (params.action == "set" && params.lore) {
@@ -1013,9 +1032,27 @@ function CEchangeItem() {
                             meta.removeItemFlags(ItemFlag.values());
                         }
 
-                        if (params.action == "set" && params.amount) {
+                        if (params.amount) {
                             var amount = parseInt(params.amount);
-                            item.setAmount(amount);
+                            switch (params.action) {
+                                case "set":
+                                    item.setAmount(amount);
+                                	break;
+                                case "increase":
+                                    item.setAmount(item.getAmount() + amount);
+                                	break;
+                                case "decrease":
+                                    item.setAmount(item.getAmount() - amount);
+                                    break;
+                                case "multiply":
+                                    item.setAmount(item.getAmount() * amount);
+                                    break;
+                                case "divide":
+                                    item.setAmount(item.getAmount() / amount);
+                                    break;
+                                default:
+                                    break;
+                            }
                         }
 
                         if (params.action == "set" && params.customModelData) {
