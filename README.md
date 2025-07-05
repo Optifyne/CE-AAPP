@@ -16,7 +16,7 @@
 For advanced users there is a great opportunity to modify everything instantly and easily: all data is stored in the path ``plugins/TriggerReactor/Executor``, ``CEPlaceholdersActivator`` activates the registration of placeholders and ``CEActionsActivator`` activates the registration of actions, all placeholders are in the same file and all actions are in different files which are named accordingly. If you want to replace something in an action or placeholder, just change the necessary files in the desired location and reload the server. Adding new actions and placeholders is also quite simple: for a new action, just create a new file in this folder and name it so that it starts with ``CE``, does not contain ``Activator`` and has the extension ``.js``; in case of new placeholders, add them in the file ``CEPlaceholdersActivator``, and after all the changes, also restart the server.
 
 ## 📌 Information ([CE AAPP DOCS](https://optifynes-organization.gitbook.io/ce-aapp/)):
-### For now the addon has 43 new actions and 15 new placeholders with different subplaceholders.
+### For now the addon has 43 new actions and 16 new placeholders with different subplaceholders.
 
 **Using this pack, you can easily and quickly do the following**:
 
