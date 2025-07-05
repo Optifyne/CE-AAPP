@@ -89,7 +89,7 @@ function CEPlaceholdersActivator() {
         },
 
         getVersion: function() {
-            return "1.3";
+            return "1.4";
         },
 
         onPlaceholderRequest: function(player, identifier) {
@@ -1209,6 +1209,111 @@ function CEPlaceholdersActivator() {
                 var endIndex = 0;
                 var value = null;
                 var newValue = null;
+                
+                function evaluateCondition(value, condition) {
+                    condition = condition.replaceAll("ᵕ", "_");
+
+                    function compare(val, op, cmp) {
+                    	var nVal = Number(val);
+                        var nCmp = Number(cmp);
+                        var bothNumeric = !isNaN(nVal) && !isNaN(nCmp);
+                        
+                        switch (op) {
+                            case "==":
+                            case "equals":
+                                return val === cmp;
+                            case "!=":
+                            case "!equals":
+                                return val !== cmp;
+                            case "equalsIgnoreCase":
+                                return val.toLowerCase() === cmp.toLowerCase();
+                            case "!equalsIgnoreCase":
+                                return val.toLowerCase() !== cmp.toLowerCase();
+                            case "startsWith":
+                                return val.startsWith(cmp);
+                            case "!startsWith":
+                                return !val.startsWith(cmp);
+                            case "endsWith":
+                                return val.endsWith(cmp);
+                            case "!endsWith":
+                                return !val.endsWith(cmp);
+                            case "contains":
+                                return val.indexOf(cmp) !== -1;
+                            case "!contains":
+                                return val.indexOf(cmp) === -1;
+                            case "matches":
+                                return new RegExp(cmp).test(val);
+                            case "!matches":
+                                return !new RegExp(cmp).test(val);
+                            case ">=":
+                                return bothNumeric ? nVal >= nCmp : false;
+                            case "<=":
+                                return bothNumeric ? nVal <= nCmp : false;
+                            case ">":
+                                return bothNumeric ? nVal > nCmp : false;
+                            case "<":
+                                return bothNumeric ? nVal < nCmp : false;
+                            default:
+                                return false;
+                        }
+                    }
+                    
+                    function splitOutside(str, sep) {
+                        var parts = [];
+                        var depth = 0, last = 0;
+                        for (var i = 0; i <= str.length - sep.length; i++) {
+                            if (str[i] === "(") depth++;
+                            if (str[i] === ")") depth--;
+                            if (depth === 0 && str.substring(i, i + sep.length) === sep) {
+                                parts.push(str.substring(last, i));
+                                last = i + sep.length;
+                            }
+                        }
+                        parts.push(str.substring(last));
+                        return parts;
+                    }
+
+                    function parseExpr(expr) {
+                        expr = expr.trim();
+
+                        var orParts = splitOutside(expr, " OR ");
+                        if (orParts.length > 1) {
+                            return orParts.some(function (p) { return parseExpr(p) });
+                        }
+
+                        var andParts = splitOutside(expr, " AND ");
+                        if (andParts.length > 1) {
+                            return andParts.every(function (p) { return parseExpr(p) });
+                        }
+
+                        if (expr.startsWith("(") && expr.endsWith(")")) {
+                            return parseExpr(expr.substring(1, expr.length - 1));
+                        }
+
+                        var ops = [
+                            "!equalsIgnoreCase", "equalsIgnoreCase",
+                            "!startsWith",       "startsWith",
+                            "!endsWith",         "endsWith",
+                            "!contains",         "contains",
+                            "!matches",          "matches",
+                            "!=", "==",
+                            ">=", ">",
+                            "<=", "<"
+                        ];
+                        for (var i = 0; i < ops.length; i++) {
+                            var op = ops[i];
+                            var idx = expr.indexOf(op);
+                            if (idx > -1) {
+                                var left = expr.substring(0, idx).trim();
+                                var right = expr.substring(idx + op.length).trim().replace(/^["']|["']$/g, "");
+                                return compare(value, op, right);
+                            }
+                        }
+                        return false;
+                    }
+
+                    return parseExpr(condition);
+                }
 
                 switch (operation) {
                     case "GET":
@@ -1235,19 +1340,19 @@ function CEPlaceholdersActivator() {
                     case "GET-COUNT-BY-VALUE":
                         if (args.length < 4) return "InvalidParameters";
                         array = args.slice(2, args.length - 1).join("_").split(separator);
-                        value = args[args.length - 1].replaceAll("ᵕ", "_");
+                        value = args[args.length - 1];
                         var count = 0;
                         for (var i = 0; i < array.length; i++) {
-                            if (array[i] === value) count++;
+                            if (evaluateCondition(array[i], value)) count++;
                         }
                         return count.toString();
                     case "GET-INDEXES-BY-VALUE":
                         if (args.length < 4) return "InvalidParameters";
                         array = args.slice(2, args.length - 1).join("_").split(separator);
-                        value = args[args.length - 1].replaceAll("ᵕ", "_");
+                        value = args[args.length - 1];
                         var indexes = [];
                         for (var i = 0; i < array.length; i++) {
-                            if (array[i] === value) indexes.push(i);
+                            if (evaluateCondition(array[i], value)) indexes.push(i);
                         }
                         return indexes.join(separator);
                     case "GET-LENGTH":
@@ -1257,8 +1362,8 @@ function CEPlaceholdersActivator() {
                     case "CHECK":
                         if (args.length < 4) return "InvalidParameters";
                         array = args.slice(2, args.length - 1).join("_").split(separator);
-                        value = args[args.length - 1].replaceAll("ᵕ", "_");
-                        return value ? (array.indexOf(value) !== -1 ? "true" : "false") : "false";
+                        value = args[args.length - 1];
+                        return array.some(function (v) { return evaluateCondition(v, value) }) ? "true" : "false";
                     case "ADD-BY-INDEX":
                         if (args.length < 5) return "InvalidParameters";
                         array = args.slice(2, args.length - 2).join("_").split(separator);
@@ -1276,11 +1381,11 @@ function CEPlaceholdersActivator() {
                     case "SET-BY-VALUE":
                         if (args.length < 5) return "InvalidParameters";
                         array = args.slice(2, args.length - 2).join("_").split(separator);
-                        value = args[args.length - 2].replaceAll("ᵕ", "_");
+                        value = args[args.length - 2];
                         newValue = args[args.length - 1].replaceAll("ᵕ", "_");
                         if (value && newValue) {
                             for (var i = 0; i < array.length; i++) {
-                                if (array[i] === value) array[i] = newValue;
+                                if (evaluateCondition(array[i], value)) array[i] = newValue;
                             }
                         }
                         return array.join(separator);
@@ -1312,10 +1417,10 @@ function CEPlaceholdersActivator() {
                     case "REMOVE-BY-VALUE":
                         if (args.length < 4) return "InvalidParameters";
                         array = args.slice(2, args.length - 1).join("_").split(separator);
-                        value = args[args.length - 1].replaceAll("ᵕ", "_");
+                        value = args[args.length - 1];
                         var newArray = [];
                         for (var i = 0; i < array.length; i++) {
-                            if (array[i] !== value) newArray.push(array[i]);
+                            if (!evaluateCondition(array[i], value)) newArray.push(array[i]);
                         }
                         array = newArray;
                         return array.join(separator);
@@ -1441,10 +1546,11 @@ function CEPlaceholdersActivator() {
                 var temp = args[0].startsWith("temp");
                 var action = temp ? args[0].substring("temp".length) : args[0];
                 var name = args[1];
-                var data = (action === "set" || action === "getset") && args[2] ? args[2].replaceAll("ᵕ", "_") : null;
-                var targetIdentifier = args[action === "set" || action === "getset" ? 3 : 2] && args[action === "set" || action === "getset" ? 3 : 2] !== "" ? args.slice(action === "set" || action === "getset" ? 3 : 2).join("_") : null;
+                var state = action === "set" || action === "getset" || action === "increase" || action === "decrease" || action === "multiply" || action === "divide";
+                var data = (state) && args[2] ? args[2].replaceAll("ᵕ", "_") : null;
+                var targetIdentifier = args[state ? 3 : 2] && args[state ? 3 : 2] !== "" ? args.slice(state ? 3 : 2).join("_") : null;
                 
-                if ((action === "set" || action === "getset") && !data) return "InvalidData";
+                if (state && !data) return "InvalidData";
 				
                 function createData(json, name, data, target) {
                     function isEmptyPlainObject(value) {
@@ -1519,6 +1625,69 @@ function CEPlaceholdersActivator() {
                 
                 if (!targetIdentifier) {
                     switch (action) {
+                        case "increase":
+                        case "decrease":
+                        case "multiply":
+                        case "divide":
+                            data = parseFloat(data);
+                            if (temp) {
+                                var savedData = Number(customDataTempGlobalData.get(name) || "NoData");
+                                if (!isNaN(savedData) && !isNaN(data)) {
+                                    switch (action) {
+                                        case "increase":
+                                            data = savedData + data;
+                                            break;
+                                        case "decrease":
+                                            data = savedData - data;
+                                            break;
+                                        case "multiply":
+                                            data = savedData * data;
+                                            break;
+                                        case "divide":
+                                            if (data === 0) return "CanNotDivideByZero";
+                                            else data = savedData / data;
+                                            break;
+                                        default:
+                                            break;
+                                    }
+                            		customDataTempGlobalData.put(name, data);
+                                } else return "NotANumber";
+                            } else {
+                                var file = new java.io.File("plugins/TriggerReactor/var.json");
+                                var json = {};
+
+                                if (file.exists()) {
+                                    json = loadData(file);
+                                } else {
+                                    return "plugins/TriggerReactor/var.json not found";
+                                }
+                                
+                                json = createData(json, name, null, null);
+                                
+                                var savedData = Number(json.CEAAPP.CEPlaceholders.CustomDataPlaceholder.GlobalData[name] || "NoData");
+                                if (!isNaN(savedData) && !isNaN(data)) {
+                                    switch (action) {
+                                        case "increase":
+                                            data = savedData + data;
+                                            break;
+                                        case "decrease":
+                                            data = savedData - data;
+                                            break;
+                                        case "multiply":
+                                            data = savedData * data;
+                                            break;
+                                        case "divide":
+                                            if (data === 0) return "CanNotDivideByZero";
+                                            else data = savedData / data;
+                                            break;
+                                        default:
+                                            break;
+                                    }
+                                    json = createData(json, name, data, null);
+                                    saveData(file, json);
+                                } else return "NotANumber";
+                            }
+                            return data;
                         case "set":
                             if (temp) {
                             	customDataTempGlobalData.put(name, data);
@@ -1641,6 +1810,69 @@ function CEPlaceholdersActivator() {
                     }
                     
                     switch (action) {
+                        case "increase":
+                        case "decrease":
+                        case "multiply":
+                        case "divide":
+                            data = parseFloat(data);
+                            if (temp) {
+                                var targetData = customDataTempTargetsData.get(target) || new HashMap();
+                                var savedData = Number(targetData.get(name) || "NoData");
+                                if (!isNaN(savedData) && !isNaN(data)) {
+                                    switch (action) {
+                                        case "increase":
+                                            data = savedData + data;
+                                            break;
+                                        case "decrease":
+                                            data = savedData - data;
+                                            break;
+                                        case "multiply":
+                                            data = savedData * data;
+                                            break;
+                                        case "divide":
+                                            if (data === 0) return "CanNotDivideByZero";
+                                            else data = savedData / data;
+                                            break;
+                                        default:
+                                            break;
+                                    }
+                            		targetData.put(name, data);
+                                	customDataTempTargetsData.put(target, targetData);
+                                } else return "NotANumber";
+                            } else {
+                                var file = new java.io.File("plugins/TriggerReactor/var.json");
+                                var json = {};
+
+                                if (file.exists()) {
+                                    json = loadData(file);
+                                } else {
+                                    return "plugins/TriggerReactor/var.json not found";
+                                }
+                                                                
+                                var savedData = Number(json.CEAAPP.CEPlaceholders.CustomDataPlaceholder.TargetsData[target] && json.CEAAPP.CEPlaceholders.CustomDataPlaceholder.TargetsData[target][name] ? json.CEAAPP.CEPlaceholders.CustomDataPlaceholder.TargetsData[target][name] : "NoData");
+                                if (!isNaN(savedData) && !isNaN(data)) {
+                                    switch (action) {
+                                        case "increase":
+                                            data = savedData + data;
+                                            break;
+                                        case "decrease":
+                                            data = savedData - data;
+                                            break;
+                                        case "multiply":
+                                            data = savedData * data;
+                                            break;
+                                        case "divide":
+                                            if (data === 0) return "CanNotDivideByZero";
+                                            else data = savedData / data;
+                                            break;
+                                        default:
+                                            break;
+                                    }
+                                    json = createData(json, name, data, target);
+                                    saveData(file, json);
+                                } else return "NotANumber";
+                            }
+                            return data;
                         case "set":
                             if (temp) {
                                 var targetData = customDataTempTargetsData.get(target) || new HashMap();
@@ -1955,6 +2187,21 @@ function CEPlaceholdersActivator() {
                             return value;
                         }
                     	return "TargetIsNotMob";
+                    case "inventory":
+                        if (target instanceof InventoryHolder) {
+                        	return target.getInventory().getType().toString();
+                        }
+                        return "TargetIsNotInventoryHolder";
+                    case "inventorySize":
+                        if (target instanceof InventoryHolder) {
+                        	return target.getInventory().getSize();
+                        }
+                        return "TargetIsNotInventoryHolder";
+                    case "openInventorySize":
+                        if (target instanceof HumanEntity) {
+                        	return target.getOpenInventory().getTopInventory().getSize();
+                        }
+                        return "TargetIsNotHumanEntity";
                     default:
                         return "InvalidAction";
                 }
@@ -1962,8 +2209,8 @@ function CEPlaceholdersActivator() {
             
             // ===================== GET BLOCK LIGHT ===================== //
             
-            if (identifier.startsWith("blockLight_")) {
-				var args = identifier.substring("blockLight_".length).split("_");
+            if (identifier.startsWith("block_")) {
+				var args = identifier.substring("block_".length).split("_");
                 
                 if (args.length < 5) return "InvalidArguments";
                 
@@ -1997,13 +2244,36 @@ function CEPlaceholdersActivator() {
                 }
                 if (!block) return "BlockNotFound";
                 
+                if (action.startsWith("light:")) {
+                    var parts = action.split(":");
+                    action = parts[0];
+                    var state = parts[1];
+                }
+                
+                var blockState = block.getState();
+                
                 switch (action) {
-					case "fromBlocks":
-                		return block.getLightFromBlocks();
-                    case "fromSky":
-                		return block.getLightFromSky();
-                    case "default":
-                		return block.getLightLevel();
+					case "light":
+                        switch (state) {
+                            case "fromBlocks":
+                            	return block.getLightFromBlocks();
+                            case "fromSky":
+                                return block.getLightFromSky();
+                            case "default":
+                                return block.getLightLevel();
+                            default:
+                                return "InvalidState";
+                        }
+                    case "inventory":
+                		if (blockState instanceof InventoryHolder) {
+                        	return blockState.getInventory().getType().toString();
+                        }
+                        return "BlockIsNotInventoryHolder";
+                    case "inventorySize":
+                		if (blockState instanceof InventoryHolder) {
+                        	return blockState.getInventory().getSize();
+                        }
+                        return "BlockIsNotInventoryHolder";
                     default:
                         return "InvalidAction";
                 }
@@ -2321,6 +2591,335 @@ function CEPlaceholdersActivator() {
                 var amount = parseInt(args[1]);
 				
                 return text.repeat(amount);
+            }
+            
+            // ===================== PLAYER LISTS PLACEHOLDER ===================== //
+            
+            if (identifier.startsWith("list_")) {
+                var withoutPrefix = identifier.substring("list_".length);
+
+                var separatorEnd = withoutPrefix.indexOf("_");
+                if (separatorEnd === -1) return "InvalidArguments";
+                var separatorRaw = withoutPrefix.substring(0, separatorEnd);
+                var separator = separatorRaw.replace(/\\n/g, "\n").replace(/\\s/g, " ").replace(/\\t/g, "\t");
+
+                var afterSeparator = withoutPrefix.substring(separatorEnd + 1);
+
+                var typeEnd = afterSeparator.indexOf("_");
+                if (typeEnd === -1) return "InvalidArguments";
+                var type = afterSeparator.substring(0, typeEnd).toUpperCase();
+
+                var afterType = afterSeparator.substring(typeEnd + 1);
+
+                var sortMatch = afterType.match(/^(AZ|ZA|SORT:\$.*?@(?:\s+DESC)?)(?:_)/);
+                if (!sortMatch) return "InvalidArguments";
+
+                var sortRaw = sortMatch[1];
+                var rest = afterType.substring(sortRaw.length + 1);
+
+                var sortMode = "NONE";
+                var sortPlaceholder = null;
+                var sortDescending = false;
+
+                if (sortRaw.toUpperCase() === "AZ") {
+                    sortMode = "AZ";
+                } else if (sortRaw.toUpperCase() === "ZA") {
+                    sortMode = "ZA";
+                } else if (sortRaw.toUpperCase().startsWith("SORT:")) {
+                    sortMode = "PLACEHOLDER";
+
+                    var sortExpr = sortRaw.substring(5);
+                    var parts = sortExpr.split(/\s+/);
+
+                    sortPlaceholder = parts[0];
+                    if (parts.length > 1 && parts[1].toUpperCase() === "DESC") {
+                        sortDescending = true;
+                    }
+                }
+
+                var rest = afterType.substring(sortRaw.length + 1);
+
+                function findEndOfFormattedPlaceholderString(input) {
+                    var i = 0;
+                    var depth = 0;
+
+                    while (i < input.length) {
+                        var char = input.charAt(i);
+                        var next = input.charAt(i + 1);
+
+                        if (char === "\\" && (next === "$" || next === "@")) {
+                            i += 2;
+                            continue;
+                        }
+
+                        if (char === "$") {
+                            depth++;
+                            i++;
+                            continue;
+                        }
+
+                        if (char === "@") {
+                            depth--;
+                            i++;
+                            if (depth <= 0) {
+                                while (input.charAt(i) === "\\" && (input.charAt(i + 1) === "$" || input.charAt(i + 1) === "@")) {
+                               		i += 2;
+                               	}
+                               	if (input.charAt(i) === "_") return i;
+                            }
+                            continue;
+                        }
+
+                        i++;
+                    }
+
+                    return -1;
+                }
+
+                var outputEnd = findEndOfFormattedPlaceholderString(rest);
+                if (outputEnd === -1) return "InvalidOutputPlaceholder";
+
+                var outputRaw = rest.substring(0, outputEnd);
+                var rawCondition = rest.substring(outputEnd + 1);
+
+                var operators = [
+                  "!equalsIgnoreCase","equalsIgnoreCase",
+                  "!equals",          "equals",
+                  "!startsWith",      "startsWith",
+                  "!endsWith",        "endsWith",
+                  "!contains",        "contains",
+                  "!matches",         "matches",
+                  ">=", "<=", "==", "!=", ">", "<"
+                ];
+
+                function compare(value, operator, target) {
+                    if (value === null || value === undefined) return false;
+                    value = value.toString();
+                    target = target.toString();
+
+                    if (operator === ">=") return parseFloat(value) >= parseFloat(target);
+                    if (operator === "<=") return parseFloat(value) <= parseFloat(target);
+                    if (operator === ">") return parseFloat(value) > parseFloat(target);
+                    if (operator === "<") return parseFloat(value) < parseFloat(target);
+                    if (operator === "==" || operator === "equals") return value == target;
+                    if (operator === "!=" || operator === "!equals") return value != target;
+                    if (operator === "equalsIgnoreCase") return value.toLowerCase() === target.toLowerCase();
+                    if (operator === "!equalsIgnoreCase") return value.toLowerCase() !== target.toLowerCase();
+                    if (operator === "startsWith") return value.indexOf(target) === 0;
+                    if (operator === "!startsWith") return value.indexOf(target) !== 0;
+                    if (operator === "contains") return value.indexOf(target) !== -1;
+                    if (operator === "!contains") return value.indexOf(target) === -1;
+                    if (operator === "endsWith") return value.endsWith(target);
+                    if (operator === "!endsWith") return !value.endsWith(target);
+                    if (operator === "matches") return new RegExp(target).test(value);
+                    if (operator === "!matches") return !new RegExp(target).test(value);
+                    return false;
+                }
+
+                function resolveNestedPlaceholders(player, input) {
+                    function unescape(str) {
+                        return str.replace(/\\([$@])/g, "$1");
+                    }
+
+                    function findDeepestPlaceholder(input) {
+                        var stack = [];
+                        for (var i = 0; i < input.length; i++) {
+                            if (input.charAt(i) === "\\" && (input.charAt(i + 1) === "$" || input.charAt(i + 1) === "@")) {
+                                i++;
+                                continue;
+                            }
+                            if (input.charAt(i) === "$") {
+                                stack.push(i);
+                            } else if (input.charAt(i) === "@") {
+                                var start = stack.pop();
+                                if (start !== undefined) {
+                                    var raw = input.substring(start, i + 1);
+                                    var content = raw.substring(1, raw.length - 1);
+                                    return { raw: raw, content: content };
+                                }
+                            }
+                        }
+                        return null;
+                    }
+
+                    while (true) {
+                        var deepest = findDeepestPlaceholder(input);
+                        if (!deepest) break;
+
+                        var raw = deepest.raw;
+                        var content = deepest.content;
+
+                        var resolvedInner = resolveNestedPlaceholders(player, content);
+                        var papiValue = PlaceholderAPI.setBracketPlaceholders(player, "{" + resolvedInner + "}");
+
+                        input = input.replace(raw, papiValue);
+                    }
+
+                    return unescape(input);
+                }
+
+                function tokenize(input) {
+                    var tokens = [];
+                    var buffer = "";
+                    var depth = 0;
+
+                    for (var i = 0; i < input.length; i++) {
+                        var c = input.charAt(i);
+
+                        if (c === '(') {
+                            if (depth === 0 && buffer.trim().length > 0) {
+                                tokens.push(buffer.trim());
+                                buffer = "";
+                            }
+                            depth++;
+                            buffer += c;
+                        } else if (c === ')') {
+                            depth--;
+                            buffer += c;
+                            if (depth === 0) {
+                                tokens.push(buffer.trim());
+                                buffer = "";
+                            }
+                        } else if (depth === 0 && input.substring(i).startsWith(" AND ")) {
+                            if (buffer.trim().length > 0) tokens.push(buffer.trim());
+                            tokens.push("AND");
+                            buffer = "";
+                            i += 4;
+                        } else if (depth === 0 && input.substring(i).startsWith(" OR ")) {
+                            if (buffer.trim().length > 0) tokens.push(buffer.trim());
+                            tokens.push("OR");
+                            buffer = "";
+                            i += 3;
+                        } else {
+                            buffer += c;
+                        }
+                    }
+
+                    if (buffer.trim().length > 0) {
+                        tokens.push(buffer.trim());
+                    }
+
+                    return tokens;
+                }
+
+                function parseExpression(expr) {
+                    expr = expr.trim();
+                    if (expr.startsWith("(") && expr.endsWith(")")) {
+                        return parseExpression(expr.substring(1, expr.length - 1));
+                    }
+
+                    var tokens = tokenize(expr);
+
+                    for (var i = 0; i < tokens.length; i++) {
+                        if (tokens[i] === "OR") {
+                            return {
+                                type: "OR",
+                                left: parseExpression(tokens.slice(0, i).join(" ")),
+                                right: parseExpression(tokens.slice(i + 1).join(" "))
+                            };
+                        }
+                    }
+
+                    for (var i = 0; i < tokens.length; i++) {
+                        if (tokens[i] === "AND") {
+                            return {
+                                type: "AND",
+                                left: parseExpression(tokens.slice(0, i).join(" ")),
+                                right: parseExpression(tokens.slice(i + 1).join(" "))
+                            };
+                        }
+                    }
+
+                    var escapedOps = operators.map(function(op) {
+                        return op.replace(/([.*+?^=!:${}()|\[\]\/\\])/g, "\\$1");
+                    }).join("|");
+                    var opPattern = new RegExp("^(.+?)\\s*(" + escapedOps + ")\\s*(.+)$");
+
+                    var match = expr.match(opPattern);
+                    if (match) {
+                        var rawPlaceholder = match[1].trim();
+                        var op = match[2].trim();
+                        var expected = match[3].trim();
+
+                        return {
+                            type: "COND",
+                            placeholder: rawPlaceholder,
+                            operator: op,
+                            expected: expected
+                        };
+                    }
+
+                    return null;
+                }
+
+                function evaluateExpression(p, exprObj) {
+                    if (exprObj.type === "AND") {
+                        return evaluateExpression(p, exprObj.left) && evaluateExpression(p, exprObj.right);
+                    }
+                    if (exprObj.type === "OR") {
+                        return evaluateExpression(p, exprObj.left) || evaluateExpression(p, exprObj.right);
+                    }
+                    if (exprObj.type === "COND") {
+                        var val = resolveNestedPlaceholders(p, exprObj.placeholder);
+                        return compare(val, exprObj.operator, exprObj.expected);
+                    }
+                    return false;
+                }
+
+                var exprTree = parseExpression(rawCondition);
+                if (!exprTree) return "InvalidExpression";
+
+                var result = [];
+                var players = (type === "ONLINE") ? Bukkit.getOnlinePlayers() : [];
+                if (type === "ALL" || type === "OFFLINE") {
+                    var offline = Bukkit.getOfflinePlayers();
+                    for (var i = 0; i < offline.length; i++) {
+                       	var p = offline[i];
+                            if (p.isOnline()) {
+                                if (type === "OFFLINE") continue;
+                            }
+                        players.push(offline[i]);
+                    }
+                }
+
+                for (var i = 0; i < players.length; i++) {
+                    var p = players[i];
+                    try {
+                        if (evaluateExpression(p, exprTree)) {
+                            var value = resolveNestedPlaceholders(p, outputRaw);
+                            result.push({ value: value, player: p });
+                        }
+                    } catch (e) {
+                        if (type !== "ONLINE") continue;
+                    }
+                }
+               
+               
+                if (sortMode === "AZ") {
+                    result.sort(function (a, b) { return a.value.localeCompare(b.value) });
+                } else if (sortMode === "ZA") {
+                    result.sort(function (a, b) { return b.value.localeCompare(a.value) });
+                } else if (sortMode === "PLACEHOLDER" && sortPlaceholder) {
+                    result.sort(function (a, b) {
+                        var aVal = resolveNestedPlaceholders(a.player, sortPlaceholder);
+                        var bVal = resolveNestedPlaceholders(b.player, sortPlaceholder);
+
+                        var aNum = parseFloat(aVal);
+                        var bNum = parseFloat(bVal);
+
+                        var bothNumbers = !isNaN(aNum) && !isNaN(bNum);
+
+                        if (bothNumbers) {
+                            return sortDescending ? bNum - aNum : aNum - bNum;
+                        }
+
+                        return sortDescending
+                            ? bVal.toString().localeCompare(aVal.toString())
+                            : aVal.toString().localeCompare(bVal.toString());
+                    });
+                }
+                
+                return result.length > 0 ? result.map(function (e) { return e.value }).join(separator) : "";
             }
             
             return null;
