@@ -2724,6 +2724,44 @@ function CEPlaceholdersActivator() {
                     if (operator === "!matches") return !new RegExp(target).test(value);
                     return false;
                 }
+                
+                function splitByFirstOpOutsidePlaceholders(s, ops) {
+                    var phDepth = 0;
+                    var paren = 0;
+
+                    for (var i = 0; i < s.length; i++) {
+                        var c = s.charAt(i);
+
+                        if (c === "\\" && i + 1 < s.length &&
+                           (s.charAt(i + 1) === "$" || s.charAt(i + 1) === "@")) {
+                            i++;
+                            continue;
+                        }
+
+                        if (c === "$") { phDepth++; continue; }
+                        if (c === "@") { phDepth--; continue; }
+
+                        if (phDepth === 0) {
+                            if (c === "(") { paren++;  continue; }
+                            if (c === ")") { paren--;  continue; }
+
+                            if (paren === 0) {
+                                for (var j = 0; j < ops.length; j++) {
+                                    var op = ops[j];
+                                    if (s.substr(i, op.length) === op) {
+                                        return [
+                                            s.substring(0, i).trim(),
+                                            op,
+                                            s.substring(i + op.length).trim()
+                                        ];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    return null;
+                }
+
 
                 function resolveNestedPlaceholders(player, input) {
                     function unescape(str) {
@@ -2839,22 +2877,14 @@ function CEPlaceholdersActivator() {
                         }
                     }
 
-                    var escapedOps = operators.map(function(op) {
-                        return op.replace(/([.*+?^=!:${}()|\[\]\/\\])/g, "\\$1");
-                    }).join("|");
-                    var opPattern = new RegExp("^(.+?)\\s*(" + escapedOps + ")\\s*(.+)$");
+                    var split = splitByFirstOpOutsidePlaceholders(expr, operators);
 
-                    var match = expr.match(opPattern);
-                    if (match) {
-                        var rawPlaceholder = match[1].trim();
-                        var op = match[2].trim();
-                        var expected = match[3].trim();
-
+                    if (split) {
                         return {
-                            type: "COND",
-                            placeholder: rawPlaceholder,
-                            operator: op,
-                            expected: expected
+                            type:       "COND",
+                            placeholder: split[0],
+                            operator:    split[1],
+                            expected:    split[2]
                         };
                     }
 
