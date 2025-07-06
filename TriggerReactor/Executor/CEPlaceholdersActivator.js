@@ -2677,10 +2677,19 @@ function CEPlaceholdersActivator() {
                 }
 
                 var outputEnd = findEndOfFormattedPlaceholderString(rest);
-                if (outputEnd === -1) return "InvalidOutputPlaceholder";
-
+                if (outputEnd === -1) {
+                    if (rest.endsWith("@")) {
+                        outputEnd = rest.length;
+                    } else {
+                        return "InvalidOutputPlaceholder";
+                    }
+                }
                 var outputRaw = rest.substring(0, outputEnd);
-                var rawCondition = rest.substring(outputEnd + 1);
+                
+                var rawCondition = "";
+                if (outputEnd < rest.length && rest.charAt(outputEnd) === "_") {
+                    rawCondition = rest.substring(outputEnd + 1);
+                }
 
                 var operators = [
                   "!equalsIgnoreCase","equalsIgnoreCase",
@@ -2853,6 +2862,7 @@ function CEPlaceholdersActivator() {
                 }
 
                 function evaluateExpression(p, exprObj) {
+                    if (!exprObj) return true; 
                     if (exprObj.type === "AND") {
                         return evaluateExpression(p, exprObj.left) && evaluateExpression(p, exprObj.right);
                     }
@@ -2860,14 +2870,18 @@ function CEPlaceholdersActivator() {
                         return evaluateExpression(p, exprObj.left) || evaluateExpression(p, exprObj.right);
                     }
                     if (exprObj.type === "COND") {
-                        var val = resolveNestedPlaceholders(p, exprObj.placeholder);
-                        return compare(val, exprObj.operator, exprObj.expected);
+                        var left  = resolveNestedPlaceholders(p, exprObj.placeholder);
+                        var right = resolveNestedPlaceholders(p, exprObj.expected);
+                        return compare(left, exprObj.operator, right);
                     }
                     return false;
                 }
 
-                var exprTree = parseExpression(rawCondition);
-                if (!exprTree) return "InvalidExpression";
+                var exprTree = null;
+                if (rawCondition.trim().length > 0) {
+                    exprTree = parseExpression(rawCondition);
+                    if (!exprTree) return "InvalidExpression";
+                }
 
                 var result = [];
                 var players = (type === "ONLINE") ? Bukkit.getOnlinePlayers() : [];
