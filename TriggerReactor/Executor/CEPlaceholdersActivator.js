@@ -2005,6 +2005,18 @@ function CEPlaceholdersActivator() {
                     action = parts[0];
                     var attribute = parts[1];
                 }
+
+                if (action.startsWith("canSee:")) {
+                    var parts = action.split(":");
+                    action = parts[0];
+                    var targetEntity = null;
+                    try {
+                        var uuid = UUID.fromString(parts[1]);
+                        targetEntity = Bukkit.getEntity(uuid);
+                    } catch (e) {
+                        targetEntity = Bukkit.getPlayer(parts[1]);
+                    }
+                }
                 
                 switch (action) {
                     case "type":
@@ -2202,6 +2214,14 @@ function CEPlaceholdersActivator() {
                         	return target.getOpenInventory().getTopInventory().getSize();
                         }
                         return "TargetIsNotHumanEntity";
+                    case "canSee":
+                        if (target instanceof Player) {
+                            if (!targetEntity) return "InvalidTargetEntity";
+                            try {
+                        		return target.canSee(targetEntity);
+                            } catch (e) { return false; }
+                        }
+                        return "TargetIsNotPlayer";
                     default:
                         return "InvalidAction";
                 }
