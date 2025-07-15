@@ -1020,8 +1020,13 @@ function CEPlaceholdersActivator() {
             
             function getEntitiesInRadius(world, x, y, z, radius, include, filters) {
                 var location = new Location(world, x, y, z);
-                return world.getNearbyEntities(location, radius, radius, radius).stream()
-                    .filter(function(entity) {
+                var entities = world.getNearbyEntities(location, radius, radius, radius).stream();
+
+                if (filters == null || filters.length === 0) {
+                    return entities.filter(function(entity) { if (!include && entity === player) return false; return true; }).collect(Collectors.toList());
+                }
+                
+                return entities.filter(function(entity) {
                     	if (filters.some(function(filter) {
                             var newFilter = filter.replaceAll("-", "_");
                             if (newFilter === "PLAYER" && newFilter === entity.getType().toString()) {
@@ -1088,7 +1093,7 @@ function CEPlaceholdersActivator() {
                 var radius = parseFloat(args[args.length - 3]);
                 var include = args[args.length - 2] === "true";
                 if (player == null) include = false;
-                var filters = args.slice(args.length - 1)[0].split(",");
+                var filters = args[args.length - 1] !== "" ? args.slice(args.length - 1)[0].split(",") : null;
 
                 var world = Bukkit.getWorld(worldName);
                 var entities = syncGetEntitiesInRadius(world, x, y, z, radius, include, filters);
@@ -1106,7 +1111,7 @@ function CEPlaceholdersActivator() {
                 var radius = parseFloat(args[args.length - 3]);
                 var include = args[args.length - 2] === "true";
                 if (player == null) include = false;
-                var filters = args.slice(args.length - 1)[0].split(",");
+                var filters = args[args.length - 1] !== "" ? args.slice(args.length - 1)[0].split(",") : null;
                 
                 var world = Bukkit.getWorld(worldName);
                 var entities = syncGetEntitiesInRadius(world, x, y, z, radius, include, filters);
@@ -1125,7 +1130,7 @@ function CEPlaceholdersActivator() {
                 var attribute = args[args.length - 3];
                 var include = args[args.length - 2] === "true";
                 if (player == null) include = false;
-                var filters = args.slice(args.length - 1)[0].split(",");
+                var filters = args[args.length - 1] !== "" ? args.slice(args.length - 1)[0].split(",") : null;
 
                 var world = Bukkit.getWorld(worldName);
                 var entities = syncGetEntitiesInRadius(world, x, y, z, radius, include, filters);
@@ -1177,7 +1182,7 @@ function CEPlaceholdersActivator() {
                 var attribute = args[args.length - 3];
                 var include = args[args.length - 2] === "true";
                 if (player == null) include = false;
-                var filters = args.slice(args.length - 1)[0].split(",");
+                var filters = args[args.length - 1] !== "" ? args.slice(args.length - 1)[0].split(",") : null;
 
                 var world = Bukkit.getWorld(worldName);
                 var entities = syncGetEntitiesInRadius(world, x, y, z, radius, include, filters);
@@ -1973,10 +1978,18 @@ function CEPlaceholdersActivator() {
             
             if (identifier.startsWith("entity_")) {
 				var args = identifier.substring("entity_".length).split("_");
-                var action = args[0] || null;
-                var targetIdentifier = args.length > 1 && args[1] !== "" ? args.slice(1).join("_") : player.getName();
+                if (args.length < 2) return "InvalidArguments";
+                var action = args[0].trim();
+                var separator = args[1];
+                var targetIdentifier = args.length > 2 && args[2] !== "" ? args.slice(2).join("_") : player.getName();
 				
-                if (!action) return "InvalidAction";
+                if (action.startsWith("path") || action.startsWith("hasPath")) {
+                    try {
+                        var PathFinder = Java.type("com.destroystokyo.paper.entity.Pathfinder");
+                    } catch (e) {
+                        return "OnlyForPaperAndAbove";
+                    }
+                }
                 
                 var target = null;
                 try {
@@ -1987,6 +2000,36 @@ function CEPlaceholdersActivator() {
                 }
 
                 if (!target) return "EntityNotFound";
+                
+                function getTaskForUUID(uuidString, last) {
+                    var file = new java.io.File("plugins/TriggerReactor/tasks.json");
+                    if (!file.exists()) return null;
+
+                    var fileReader = new java.util.Scanner(file);
+                    var jsonContent = fileReader.useDelimiter("\\Z").next();
+                    fileReader.close();
+
+                    var json = JSON.parse(jsonContent);
+
+                    if (
+                        json &&
+                        json.SavedTasks &&
+                        json.SavedTasks.Points &&
+                        json.SavedTasks.Points[uuidString]
+                    ) {
+                        var points = json.SavedTasks.Points[uuidString];
+                        if (!points || points.length === 0) return "";
+
+                        if (last) {
+                            var p = points[points.length - 1];
+                            return p.world + separator + p.x + separator + p.y + separator + p.z + separator + p.pitch + separator + p.yaw;
+                        } else {
+                            return points.map(function (p) { return p.world + ";" + p.x + ";" + p.y + ";" + p.z + ";" + p.pitch + ";" + p.yaw }).join(separator);
+                        }
+                    }
+
+                    return "NoPath";
+                }
                 
                 if (action.startsWith("isOnFire:")) {
                     var parts = action.split(":");
@@ -2000,12 +2043,12 @@ function CEPlaceholdersActivator() {
                     var coords = parts[1] ? parts[1].split(",") : null;
                 }
                 
-                if (action.startsWith("passengers:") || action.startsWith("target:")) {
+                if (action.startsWith("passengers:") || action.startsWith("target:") || action.startsWith("path:")) {
                     var parts = action.split(":");
                     action = parts[0];
                     var attribute = parts[1];
                 }
-
+                
                 if (action.startsWith("canSee:")) {
                     var parts = action.split(":");
                     action = parts[0];
@@ -2104,7 +2147,7 @@ function CEPlaceholdersActivator() {
                         return target.getFireTicks();
                     case "location":
                         var output = [];
-                        if (!coords) coords = ["world", "x", "y", "z"];
+                        if (!coords) coords = ["world", "x", "y", "z", "yaw", "pitch"];
                         
                         coords.forEach(function(coord) {
                             switch (coord) {
@@ -2120,12 +2163,18 @@ function CEPlaceholdersActivator() {
                                 case "z":
                                     output.push(target.getLocation().getZ());
                                     break;
+                                case "yaw":
+                                    output.push(target.getLocation().getYaw());
+                                    break;
+                                case "pitch":
+                                    output.push(target.getLocation().getPitch());
+                                    break;
                                 default:
                                     return "InvalidCoord";
                             }
                         });
                         
-                        return output.join(";");
+                        return output.join(separator);
                     case "openInventory":
                         if (target instanceof HumanEntity) {
                         	return target.getOpenInventory().getType().toString();
@@ -2159,7 +2208,7 @@ function CEPlaceholdersActivator() {
                                     return "InvalidAttribute";
                             }
                             if (i > 0) {
-                                result += ",";
+                                result += separator;
                             }
                             result += value;
                         }
@@ -2191,7 +2240,7 @@ function CEPlaceholdersActivator() {
                                     value = e.getName ? p.getName() : "Unknown";
                                     break;
                                 case "coords":
-                                    value = e.getWorld().getName() + ";" + e.getLocation().getX() + ";" + e.getLocation().getY() + ";" + e.getLocation().getZ();
+                                    value = e.getWorld().getName() + separator+ e.getLocation().getX() + separator + e.getLocation().getY() + separator + e.getLocation().getZ();
                                     break;
                                 default:
                                     return "InvalidAttribute";
@@ -2214,12 +2263,57 @@ function CEPlaceholdersActivator() {
                         	return target.getOpenInventory().getTopInventory().getSize();
                         }
                         return "TargetIsNotHumanEntity";
+                    case "hasPath":
+                        if (target instanceof Mob) {
+                        	return target.getPathfinder().hasPath();
+                        } else {
+                            return getTaskForUUID(target.getUniqueId().toString()) !== "NoPath";
+                        }
+                    case "path":
+                        switch (attribute) {
+                            case "lastPoint":
+                                if (target instanceof Mob) {
+                                    var path = target.getPathfinder().getCurrentPath();
+                                    if (path && path.getFinalPoint()) {
+                                        var p = path.getFinalPoint();
+                                        return p.getWorld().getName() + separator + p.getX() + separator + p.getY() + separator + p.getZ() + separator + p.getPitch() + separator + p.getYaw();
+                                    } else return "NoPath";
+                                } else {
+                                    return getTaskForUUID(target.getUniqueId().toString(), true);
+                                }
+                                break;
+                            case "allPoints":
+                                if (target instanceof Mob) {
+                                    var path = target.getPathfinder().getCurrentPath();
+                                    if (path && path.getPoints()) {
+                                        var points = Java.from(path.getPoints().toArray());
+                                        return points.map(function (p) { return p.getWorld().getName() + ";" + p.getX() + ";" + p.getY() + ";" + p.getZ() + ";" + p.getPitch() + ";" + p.getYaw(); }).join(separator);
+                                    } else return "NoPath";
+                                } else {
+                                    return getTaskForUUID(target.getUniqueId().toString(), false);
+                                }
+                                break;
+                            default:
+                                return "InvalidAttribute";
+                        }
                     case "canSee":
                         if (target instanceof Player) {
                             if (!targetEntity) return "InvalidTargetEntity";
                             try {
                         		return target.canSee(targetEntity);
                             } catch (e) { return false; }
+                        }
+                        return "TargetIsNotPlayer";
+                    case "isInvisible":
+                        if (target instanceof LivingEntity) {
+                            return target.isInvisible();
+                        }
+                        return "TargetIsNotLivingEntity";
+                    case "isInvulnerable":
+                    	return target.isInvulnerable();
+                    case "expPercent":
+                    	if (target instanceof Player) {
+                        	return Math.round(target.getExp() * 100);
                         }
                         return "TargetIsNotPlayer";
                     default:
