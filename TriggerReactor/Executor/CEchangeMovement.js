@@ -27,13 +27,13 @@ function CEchangeMovement() {
         execute: function(player, actionLine, minecraftEvent) {
             var args = actionLine.split(";");
             if (args.length < 3) {
-                Bukkit.getLogger().warning("[CEActions] CHANGE_MOVEMENT ACTION: Invalid format! Correct format: change_movement: <entity_uuid|player_name>;<action (sprint, sneak, swim or sit)>;<state (true|false)>");
+                Bukkit.getLogger().warning("[CEActions] CHANGE_MOVEMENT ACTION: Invalid format! Correct format: change_movement: <entity_uuid|player_name>;<action (sprint, sneak, swim, sit or rotate)>;<state (true|false) or yaw,pitch (in float, only for 'rotate' action)>");
                 return;
             }
 
             var identifier = args[0].trim();
             var action = args[1].trim().toLowerCase();
-            var state = args[2].trim().toLowerCase() === "true";
+            var state = action === "rotate" ? args[2].trim().split(",") : args[2].trim().toLowerCase() === "true";
             
             var target = null;
             try {
@@ -76,8 +76,19 @@ function CEchangeMovement() {
                     }
                     target.setSitting(state);
                     break;
+                case "rotate":
+                    var yaw = parseFloat(state[0]);
+                    var pitch = parseFloat(state[1]);
+                    if (isNaN(yaw) || isNaN(pitch)) {
+                    	Bukkit.getLogger().warning("[CEActions] CHANGE_MOVEMENT ACTION: Invalid yaw or pitch value.");
+                		return;
+                    }
+                    try {
+                        target.setRotation(yaw, pitch);
+                    } catch (e) {}
+                    break;
                 default:
-					Bukkit.getLogger().warning("[CEActions] CHANGE_MOVEMENT ACTION: Invalid action, use 'sprint', 'sneak', 'swim' or 'sit'.");
+					Bukkit.getLogger().warning("[CEActions] CHANGE_MOVEMENT ACTION: Invalid action, use 'sprint', 'sneak', 'swim', 'sit' or 'rotate'.");
                 	return;
             }
         }
