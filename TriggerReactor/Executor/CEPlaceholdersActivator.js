@@ -2061,6 +2061,21 @@ function CEPlaceholdersActivator() {
                     }
                 }
                 
+                if (action.startsWith("targetBlock:")) {
+                    var parts = action.split(":");
+                    action = parts[0];
+                    if (parts.length < 5) return "InvalidAttributes";
+                    var output = parts[1].trim();
+                    var skipBlocks = parts[2] ? parts[2].replaceAll("-", "_").split(",") : null;
+                    var distance = parseInt(parts[3]);
+                    var fluids = null;
+                    try {
+                    	fluids = org.bukkit.FluidCollisionMode.valueOf(parts[4].replaceAll("-", "_").trim().toUpperCase());
+                    } catch (e) {
+                        fluids = org.bukkit.FluidCollisionMode.ALWAYS;
+                    }
+                }
+                
                 switch (action) {
                     case "type":
                         return target.getType().name();
@@ -2316,6 +2331,49 @@ function CEPlaceholdersActivator() {
                         	return Math.round(target.getExp() * 100);
                         }
                         return "TargetIsNotPlayer";
+                    case "targetBlock":
+                        if (target instanceof LivingEntity) {
+                            var targetBlock = null;
+                            var dist = isNaN(distance) ? 50 : distance;
+                            try {
+                                if (skipBlocks) {
+                                    var skip = new java.util.HashSet();
+                                    skipBlocks.forEach(function (b) {
+                                    	var block = null;
+                                        try {
+                                       		block = Material.valueOf(b);
+                                       	} catch (e) { return; }
+                                       	skip.add(block);
+                                    });
+                                    targetBlock = target.getTargetBlock(skip, dist);
+                                } else {
+                                    targetBlock = target.getTargetBlockExact(dist, fluids);
+                                }
+                            } catch (e) {
+                                targetBlock = target.getTargetBlockExact(dist, fluids);
+                            }
+                            
+                            if (!targetBlock) return "None";
+                            
+                            switch (output) {
+                                case "type":
+                                    targetBlock = targetBlock.getType().toString();
+                                    break;
+                                case "location":
+                                    var loc = targetBlock.getLocation();
+                                    targetBlock = loc.getWorld().getName() + separator + loc.getX() + separator + loc.getY() + separator + loc.getZ();
+                                    break;
+                                case "face":
+                                    var data = targetBlock.getBlockData();
+                                    targetBlock = data instanceof org.bukkit.block.data.Directional ? data.getFacing() : null;
+                                    break;
+                                default:
+                                    return "InvalidOutput";
+                            }
+                            
+                            return targetBlock || "None";
+                        }
+                        return "TargetIsNotLivingEntity";
                     default:
                         return "InvalidAction";
                 }
