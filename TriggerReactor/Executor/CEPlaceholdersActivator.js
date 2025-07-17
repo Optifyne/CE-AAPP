@@ -64,6 +64,7 @@ var Runnable = Java.type("java.lang.Runnable");
 var HashMap = Java.type("java.util.HashMap");
 var Structure = Java.type("org.bukkit.generator.structure.Structure");
 var EnchantmentStorageMeta = Java.type("org.bukkit.inventory.meta.EnchantmentStorageMeta");
+var Directional = Java.type("org.bukkit.block.data.Directional");
 
 var customDataTempGlobalData = new HashMap();
 var customDataTempTargetsData = new HashMap();
@@ -93,6 +94,62 @@ function CEPlaceholdersActivator() {
         },
 
         onPlaceholderRequest: function(player, identifier) {
+            
+            // ===================== INTERNAL USE ONLY ===================== //
+            
+            var scheduler = Bukkit.getScheduler();
+            var plugin = Bukkit.getPluginManager().getPlugin("TriggerReactor");
+            
+            function getEntitySync(target) {
+                if (Bukkit.isPrimaryThread()) {
+                    try {
+                        return Bukkit.getEntity(target);
+                    } catch (e) {
+                        return null;
+                    }
+                }
+
+                var result = new java.util.concurrent.atomic.AtomicReference();
+                var latch = new java.util.concurrent.CountDownLatch(1);
+
+                scheduler.runTask(plugin, new java.lang.Runnable({
+                    run: function () {
+                        try {
+                            result.set(Bukkit.getEntity(target));
+                        } catch (e) {
+                            result.set(null);
+                        } finally {
+                            latch.countDown();
+                        }
+                    }
+                }));
+
+                latch.await();
+                return result.get();
+            }
+            
+            function getPlayerSync(target, offline) {
+                if (Bukkit.isPrimaryThread()) {
+                    return offline ? Bukkit.getOfflinePlayer(target) : Bukkit.getPlayer(target);
+                }
+
+                var result = new java.util.concurrent.atomic.AtomicReference();
+                var latch = new java.util.concurrent.CountDownLatch(1);
+
+                scheduler.runTask(plugin, new java.lang.Runnable({
+                    run: function () {
+                        try {
+                            var player = offline ? Bukkit.getOfflinePlayer(target) : Bukkit.getPlayer(target);
+                            result.set(player);
+                        } finally {
+                            latch.countDown();
+                        }
+                    }
+                }));
+
+                latch.await();
+                return result.get();
+            }
             
             // ===================== ITEMS CHECKING FEATURES ===================== //
             
@@ -131,7 +188,7 @@ function CEPlaceholdersActivator() {
                 } else if (targetIdentifier.length === 36) {
                     try {
                         var uuid = UUID.fromString(targetIdentifier);
-                        var entity = Bukkit.getEntity(uuid);
+                        var entity = getEntitySync(uuid);
                         
                         if (entity) {
                             target = entity;
@@ -141,7 +198,7 @@ function CEPlaceholdersActivator() {
                         return "InvalidEntity";
                     }
                 } else {
-                    var onlinePlayer = Bukkit.getPlayer(targetIdentifier);
+                    var onlinePlayer = getPlayerSync(targetIdentifier, false);
                     
                     if (onlinePlayer) {
                     	target = onlinePlayer;
@@ -538,7 +595,7 @@ function CEPlaceholdersActivator() {
 
                                 if (user == null) {
                                     try {
-                                        var offlinePlayer = Bukkit.getOfflinePlayer(target);
+                                        var offlinePlayer = getPlayerSync(target, true);
                                         var future = userManager.loadUser(offlinePlayer.getUniqueId());
                                         user = future.join();
                                     } catch (e) {
@@ -590,7 +647,7 @@ function CEPlaceholdersActivator() {
                     playerName = playerName.substring(0, playerNameEndIndex);
                 }
                     
-                var targetPlayer = playerName === "" ? player : Bukkit.getPlayer(playerName);
+                var targetPlayer = playerName === "" ? player : getPlayerSync(playerName, false);
                 if (targetPlayer != null) {
                     var targetLocation = targetPlayer.getLocation();
                     var targetWorld = targetLocation.getWorld();
@@ -608,7 +665,8 @@ function CEPlaceholdersActivator() {
             if (identifier.startsWith("highestBlock_uuid_")) {
                 var uuidString = identifier.substring("highestBlock_uuid_".length());
                 if (uuidString === "") return "InvalidUUID";
-                var entity = Bukkit.getEntity(UUID.fromString(uuidString));
+                var uuid = UUID.fromString(uuidString);
+                var entity = getEntitySync(uuid);
                 if (entity != null) {
                     var entitylocation = entity.getLocation();
                     var entityWorld = entitylocation.getWorld();
@@ -1499,7 +1557,8 @@ function CEPlaceholdersActivator() {
                 if (team == null) {
                     var entity;
                     try {
-                        entity = Bukkit.getEntity(UUID.fromString(target));
+                        var uuid = UUID.fromString(target);
+                        entity = getEntitySync(uuid);
                     } catch (e) {
                         entity = null;
                     }
@@ -1509,7 +1568,7 @@ function CEPlaceholdersActivator() {
                 }
 
                 if (team == null) {
-                    var player = Bukkit.getPlayer(target);
+                    var player = getPlayerSync(target, false);
                     if (player != null) {
                         team = scoreboard.getEntryTeam(player.getName());
                     }
@@ -1805,10 +1864,10 @@ function CEPlaceholdersActivator() {
                     } else {
                         try {
                             var uuid = UUID.fromString(targetIdentifier);
-                            var entity = Bukkit.getEntity(uuid);
+                            var entity = getEntitySync(uuid);
                             target = entity ? uuid : null;
                         } catch (e) {
-                            target = Bukkit.getOfflinePlayer(targetIdentifier);
+                            target = getPlayerSync(targetIdentifier, true);
                         }
                         
                         if (!target) return "InvalidTarget";
@@ -1994,9 +2053,9 @@ function CEPlaceholdersActivator() {
                 var target = null;
                 try {
                     var uuid = UUID.fromString(targetIdentifier);
-                    target = Bukkit.getEntity(uuid);
+                    target = getEntitySync(uuid);
                 } catch (e) {
-                    target = Bukkit.getPlayer(targetIdentifier);
+                    target = getPlayerSync(targetIdentifier, false);
                 }
 
                 if (!target) return "EntityNotFound";
@@ -2043,7 +2102,7 @@ function CEPlaceholdersActivator() {
                     var coords = parts[1] ? parts[1].split(",") : null;
                 }
                 
-                if (action.startsWith("passengers:") || action.startsWith("target:") || action.startsWith("path:")) {
+                if (action.startsWith("passengers:") || action.startsWith("target:") || action.startsWith("path:") || action.startsWith("velocity:")) {
                     var parts = action.split(":");
                     action = parts[0];
                     var attribute = parts[1];
@@ -2055,9 +2114,9 @@ function CEPlaceholdersActivator() {
                     var targetEntity = null;
                     try {
                         var uuid = UUID.fromString(parts[1]);
-                        targetEntity = Bukkit.getEntity(uuid);
+                        targetEntity = getEntitySync(uuid);
                     } catch (e) {
-                        targetEntity = Bukkit.getPlayer(parts[1]);
+                        targetEntity = getPlayerSync(parts[1], false);
                     }
                 }
                 
@@ -2074,6 +2133,15 @@ function CEPlaceholdersActivator() {
                     } catch (e) {
                         fluids = org.bukkit.FluidCollisionMode.ALWAYS;
                     }
+                }
+                
+                if (action.startsWith("targetEntity:")) {
+                    var parts = action.split(":");
+                    action = parts[0];
+                    if (parts.length < 4) return "InvalidAttributes";
+                    var output = parts[1].trim();
+                    var distance = parseFloat(parts[2]);
+                    var raySize = parseFloat(parts[3]);
                 }
                 
                 switch (action) {
@@ -2365,7 +2433,7 @@ function CEPlaceholdersActivator() {
                                     break;
                                 case "face":
                                     var data = targetBlock.getBlockData();
-                                    targetBlock = data instanceof org.bukkit.block.data.Directional ? data.getFacing() : null;
+                                    targetBlock = data instanceof Directional ? data.getFacing() : null;
                                     break;
                                 default:
                                     return "InvalidOutput";
@@ -2374,6 +2442,70 @@ function CEPlaceholdersActivator() {
                             return targetBlock || "None";
                         }
                         return "TargetIsNotLivingEntity";
+                    case "targetEntity":
+                        var targetEntity = null;
+                        var dist = isNaN(distance) ? 50.0 : distance;
+                        var size = isNaN(raySize) ? 0.5 : raySize;
+                        var loc = target.getEyeLocation();
+                        var dir = loc.getDirection();
+                        
+                        try {
+                        	targetEntity = loc.getWorld().rayTraceEntities(loc, dir, dist, size, function (e) { return !e.equals(target); }).getHitEntity();
+                        } catch (e) { return "None"; }
+                        
+                        if (!targetEntity) return "None";
+                            
+                        switch (output) {
+                            case "type":
+                                targetEntity = targetEntity.getType().toString();
+                                break;
+                            case "location":
+                                var loc = targetEntity.getLocation();
+                                targetEntity = loc.getWorld().getName() + separator + loc.getX() + separator + loc.getY() + separator + loc.getZ() + separator + loc.getYaw() + separator + loc.getPitch();
+                                break;
+                            case "face":
+                                targetEntity = targetEntity.getFacing();
+                                break;
+                            case "uuid":
+                                targetEntity = targetEntity.getUniqueId().toString();
+                                break;
+                            case "enum":
+                                targetEntity = targetEntity.toString();
+                                break;
+                            case "name":
+                                targetEntity = targetEntity.getName ? targetEntity.getName() : "Unknown";
+                                break;
+                            default:
+                                return "InvalidOutput";
+                        }
+                            
+                        return targetEntity || "None";
+                    case "face":
+                    	return target.getFacing();
+                    case "velocity":
+                        var vel = target.getVelocity();
+                        switch (attribute) {
+                            case "x":
+                                vel = vel.getX();
+                                break;
+                            case "y":
+                                vel = vel.getY();
+                                break;
+                            case "z":
+                                vel = vel.getZ();
+                                break;
+                            case "xz":
+                                vel.setY(0);
+                                vel = vel.length();
+                                break;
+                            case "general":
+                                vel = vel.length();
+                                break;
+                            default:
+                                return "InvalidAttribute";
+                        }
+                        
+                    	return vel;
                     default:
                         return "InvalidAction";
                 }
@@ -2446,6 +2578,12 @@ function CEPlaceholdersActivator() {
                         	return blockState.getInventory().getSize();
                         }
                         return "BlockIsNotInventoryHolder";
+                    case "face":
+                        var data = blockState.getBlockData();
+						if (data instanceof Directional) {
+                        	return data.getFacing();
+                        }
+                        return "BlockIsNotDirectional";
                     default:
                         return "InvalidAction";
                 }
