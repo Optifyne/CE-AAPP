@@ -17,38 +17,82 @@
 
 var Bukkit = Java.type("org.bukkit.Bukkit");
 var ConditionalEventsAPI = Java.type("ce.ajneb97.api.ConditionalEventsAPI");
-var pluginString = "TriggerReactor";
+var pluginString = "ConditionalEvents";
 var plugin = Bukkit.getPluginManager().getPlugin(pluginString);
 
 var Paths = Java.type("java.nio.file.Paths");
 var Files = Java.type("java.nio.file.Files");
-var DirectoryStream = Java.type("java.nio.file.DirectoryStream");
+var Runnable = Java.type("java.lang.Runnable");
 
 function CEActionsActivator() {
     if (plugin != null) {
+        plugin = Bukkit.getPluginManager().getPlugin("TriggerReactor");
         var actionsDirectory = Paths.get("plugins/TriggerReactor/Executor/");
+        var fileList = [];
 
         try {
-            var directoryStream = Files.newDirectoryStream(actionsDirectory);
-            var iterator = directoryStream.iterator();
+            var stream = Files.newDirectoryStream(actionsDirectory);
+            var iterator = stream.iterator();
 
             while (iterator.hasNext()) {
                 var filePath = iterator.next();
                 var fileName = filePath.getFileName().toString();
 
                 if (fileName.startsWith("CE") && fileName.endsWith(".js") && !fileName.contains("Activator")) {
-                    var action = load(filePath.toString());
-                    if (action) {
-                        ConditionalEventsAPI.registerApiActions(plugin, action);
-                        Bukkit.getLogger().info("[CEActions] Action \"" + fileName + "\" registered successfully!");
-                    }
+                    fileList.push(filePath.toString());
                 }
             }
 
-            directoryStream.close();
+            stream.close();
         } catch (e) {
-            Bukkit.getLogger().warning("[CEActions] Failed to read the actions directory: " + e.message);
+            Bukkit.getLogger().warning("[CEActions] Failed to read the directory: " + e.message);
+            return;
         }
+
+        if (fileList.length === 0) {
+            Bukkit.getLogger().info("[CEActions] No files to process.");
+            return;
+        }
+
+        var index = 0;
+        var maxRetries = 3;
+        var retries = 0;
+
+        function processFile() {
+            if (index >= fileList.length) {
+                return;
+            }
+
+            var filePath = fileList[index];
+            var fileName = filePath.substring(filePath.lastIndexOf("/") + 1);
+
+            try {
+                var action = load(filePath);
+                if (action) {
+                    ConditionalEventsAPI.registerApiActions(plugin, action);
+                }
+
+                index++;
+                retries = 0;
+
+                Bukkit.getScheduler().runTaskLater(plugin, new Runnable({ run: processFile }), 1);
+            } catch (e) {
+                retries++;
+                Bukkit.getLogger().warning("[CEActions] Error in " + fileName + ": " + e.message +
+                                           " (Attempt " + retries + "/" + maxRetries + ")");
+
+                if (retries < maxRetries) {
+                    Bukkit.getScheduler().runTaskLater(plugin, new Runnable({ run: processFile }), 20);
+                } else {
+                    Bukkit.getLogger().warning("[CEActions] Skipping " + fileName + " after " + maxRetries + " attempts.");
+                    index++;
+                    retries = 0;
+                    Bukkit.getScheduler().runTaskLater(plugin, new Runnable({ run: processFile }), 10);
+                }
+            }
+        }
+
+        processFile();
     } else {
         Bukkit.getLogger().warning("[CEActions] " + pluginString + " plugin not found!");
     }
