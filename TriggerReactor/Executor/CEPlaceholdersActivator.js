@@ -65,6 +65,8 @@ var HashMap = Java.type("java.util.HashMap");
 var Structure = Java.type("org.bukkit.generator.structure.Structure");
 var EnchantmentStorageMeta = Java.type("org.bukkit.inventory.meta.EnchantmentStorageMeta");
 var Directional = Java.type("org.bukkit.block.data.Directional");
+var Rotatable = Java.type("org.bukkit.block.data.Rotatable");
+var Colorable = Java.type("org.bukkit.material.Colorable");
 
 var customDataTempGlobalData = new HashMap();
 var customDataTempTargetsData = new HashMap();
@@ -904,12 +906,13 @@ function CEPlaceholdersActivator() {
 
                         var block = validBlocks[Math.floor(Math.random() * validBlocks.length)];
 
+                        var output = parts.slice(6).join("_");
                         var result = [];
-                        if (identifier.indexOf("_type") !== -1) result.push(block.getType().toString());
-                        if (identifier.indexOf("_world") !== -1) result.push(block.getWorld().getName().toString());
-                        if (identifier.indexOf("_x") !== -1) result.push(block.getX());
-                        if (identifier.indexOf("_y") !== -1) result.push(block.getY());
-                        if (identifier.indexOf("_z") !== -1) result.push(block.getZ());
+                        if (output.indexOf("_type") !== -1) result.push(block.getType().toString());
+                        if (output.indexOf("_world") !== -1) result.push(block.getWorld().getName().toString());
+                        if (output.indexOf("_x") !== -1) result.push(block.getX());
+                        if (output.indexOf("_y") !== -1) result.push(block.getY());
+                        if (output.indexOf("_z") !== -1) result.push(block.getZ());
 
                         return result.join(",");
                     }
@@ -2506,6 +2509,11 @@ function CEPlaceholdersActivator() {
                         }
                         
                     	return vel;
+                    case "color":
+                        if (target instanceof Colorable) {
+                            return target.getColor();
+                        }
+                        return "TargetIsNotColorable";
                     default:
                         return "InvalidAction";
                 }
@@ -2548,17 +2556,16 @@ function CEPlaceholdersActivator() {
                 }
                 if (!block) return "BlockNotFound";
                 
-                if (action.startsWith("light:")) {
+                if (action.startsWith("light:") || action.startsWith("color:")) {
                     var parts = action.split(":");
                     action = parts[0];
-                    var state = parts[1];
+                    var attribute = parts[1];
                 }
                 
                 var blockState = block.getState();
-                
                 switch (action) {
 					case "light":
-                        switch (state) {
+                        switch (attribute) {
                             case "fromBlocks":
                             	return block.getLightFromBlocks();
                             case "fromSky":
@@ -2583,7 +2590,21 @@ function CEPlaceholdersActivator() {
 						if (data instanceof Directional) {
                         	return data.getFacing();
                         }
-                        return "BlockIsNotDirectional";
+                        if (data instanceof Rotatable) {
+                        	return data.getRotation();
+                        }
+                        return "BlockIsNotDirectionalOrRotatable";
+                    case "color":
+                        if (blockState instanceof Colorable) {
+                            var side = null;
+                            try {
+                                side = org.bukkit.block.sign.Side.valueOf(attribute.trim().toUpperCase());
+                            } catch (e) {}
+                            
+                            if (blockState instanceof org.bukkit.block.Sign && side) return blockState.getSide(side).getColor();
+                            else return blockState.getColor();
+                        }
+                        return "BlockIsNotColorable";
                     default:
                         return "InvalidAction";
                 }
