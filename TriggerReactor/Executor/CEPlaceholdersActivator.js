@@ -2514,6 +2514,8 @@ function CEPlaceholdersActivator() {
                             return target.getColor();
                         }
                         return "TargetIsNotColorable";
+		    case "pose":
+                    	return target.getPose();
                     default:
                         return "InvalidAction";
                 }
