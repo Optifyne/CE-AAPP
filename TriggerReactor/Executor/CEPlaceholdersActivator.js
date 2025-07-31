@@ -2514,8 +2514,10 @@ function CEPlaceholdersActivator() {
                             return target.getColor();
                         }
                         return "TargetIsNotColorable";
-		    case "pose":
+                    case "pose":
                     	return target.getPose();
+                    case "spawnReason":
+                    	return target.getEntitySpawnReason ? target.getEntitySpawnReason() : "OnlyPaperAndAbove";
                     default:
                         return "InvalidAction";
                 }
