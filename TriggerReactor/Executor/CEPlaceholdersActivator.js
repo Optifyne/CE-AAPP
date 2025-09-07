@@ -1361,6 +1361,7 @@ function CEPlaceholdersActivator() {
 
                         var ops = [
                             "!equalsIgnoreCase", "equalsIgnoreCase",
+							"!equals",           "equals",
                             "!startsWith",       "startsWith",
                             "!endsWith",         "endsWith",
                             "!contains",         "contains",
