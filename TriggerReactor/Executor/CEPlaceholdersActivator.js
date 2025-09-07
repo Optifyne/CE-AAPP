@@ -465,6 +465,9 @@ function CEPlaceholdersActivator() {
                         	cooldown = meta.getUseCooldown().getCooldownSeconds();
                         } catch (e) {}
                         return cooldown !== null ? cooldown : "None";
+					case "itemModel":
+                        var meta = item.getItemMeta();
+                        return meta.getItemModel ? meta.getItemModel() : "None";
                     default:
                         return "InvalidArguments";
                 }
