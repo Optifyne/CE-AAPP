@@ -3304,6 +3304,63 @@ function CEPlaceholdersActivator() {
                 
                 return result.length > 0 ? result.map(function (e) { return e.value }).join(separator) : "";
             }
+
+			// ===================== CUSTOM MOON PHASES PLACEHOLDER ===================== //
+            
+            if (identifier.startsWith("customMoon_")) {
+                var args = identifier.substring("customMoon_".length).split("_");
+                
+                if (args.length < 2) return "InvalidArguments";
+                
+                var custom = args[0].split(":");
+                var customState = custom[0].trim().toLowerCase() === "true";
+                var customOutput = custom.length > 1 ? custom[1].split(",") : [];
+				var worldName = args.slice(1).join("_");
+                
+                var world = Bukkit.getWorld(worldName);
+                if (!world) return "InvalidWorld";
+				
+                var curMoonNumber = Math.floor((world.getFullTime() / 24000) % 8);
+                if (customState) {
+                    var moonsEN = {0: "FULL MOON", 1: "WANING GIBBOUS", 2: "LAST QUARTER", 3: "WANING CRESCENT", 4: "NEW MOON", 5: "WAXING CRESCENT", 6: "FIRST QUARTER", 7: "WAXING GIBBOUS"};
+                    var moonsRU = {0: "ПОЛНОЛУНИЕ", 1: "УБЫВАЮЩАЯ ЛУНА", 2: "ПОСЛЕДНЯЯ ЧЕТВЕРТЬ", 3: "СТАРАЯ ЛУНА", 4: "НОВОЛУНИЕ", 5: "РАСТУЩАЯ ЛУНА", 6: "ПЕРВАЯ ЧЕТВЕРТЬ", 7: "МОЛОДАЯ ЛУНА"};
+                    var moonsES = {0: "LUNA LLENA", 1: "GIBOSA MENGUANTE", 2: "CUARTO MENGUANTE", 3: "LUNA MENGUANTE", 4: "LUNA NUEVA", 5: "LUNA CRECIENTE", 6: "CUARTO CRECIENTE", 7: "GIBOSA CRECIENTE"};
+                    
+                    var curMoon = moonsEN[curMoonNumber];
+                    customOutput.forEach(function (o) {
+                        switch (o) {
+                            case "Us":
+                                curMoon = curMoon.replaceAll(" ", "_");
+                                break;
+                            case "Dh":
+                                curMoon = curMoon.replaceAll(" ", "-");
+                                break;
+                            case "Lc":
+                            	curMoon = curMoon.toLowerCase();
+                                break;
+                            case "Uc":
+                            	curMoon = curMoon.toUpperCase();
+                                break;
+                            case "FUc":
+                            	curMoon = curMoon.toLowerCase().replace(/([\u00C0-\u024F\u0400-\u04FFA-Za-z])([\u00C0-\u024F\u0400-\u04FFA-Za-z]*)/g, function(_, first, rest) { return first.toUpperCase() + rest; });
+                                break;
+                            case "ES":
+                            	curMoon = moonsES[curMoonNumber];
+                                break;
+                            case "RU":
+                            	curMoon = moonsRU[curMoonNumber];
+                                break;
+                            case "EN":
+                            	curMoon = moonsEN[curMoonNumber];
+                                break;
+                            default:
+                                break;
+                    	}
+                    });
+                    
+                    return curMoon;
+                } else return curMoonNumber;
+            }
             
             return null;
         }
