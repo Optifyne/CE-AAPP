@@ -385,9 +385,9 @@ function CEPlaceholdersActivator() {
                         var keys = enchantments.keySet().toArray();
                         for (var i = 0; i < keys.length; i++) {
                             var entry = keys[i];
-                            enchantmentList.push(entry.getKey().getKey().toUpperCase() + "=" + enchantments.get(entry));
+                            enchantmentList.push(entry.getName() + "=" + enchantments.get(entry));
                         }
-                        return enchantmentList.join(", ");
+                        return enchantmentList.join(",");
                     case "enchantmentsBook":
                         var meta = item.getItemMeta();
                         if (!(meta instanceof EnchantmentStorageMeta)) return "ItemIsNotEnchantedBook";
@@ -398,9 +398,9 @@ function CEPlaceholdersActivator() {
                         var keys = enchantments.keySet().toArray();
                         for (var i = 0; i < keys.length; i++) {
                             var entry = keys[i];
-                            enchantmentList.push(entry.getKey().getKey().toUpperCase() + "=" + enchantments.get(entry));
+                            enchantmentList.push(entry.getName() + "=" + enchantments.get(entry));
                         }
-                        return enchantmentList.join(", ");
+                        return enchantmentList.join(",");
                     case "maxDurability":
                         return item.getType().getMaxDurability();
                     case "currentDurability":
@@ -421,7 +421,7 @@ function CEPlaceholdersActivator() {
                         for (var i = 0; i < flagArray.length; i++) {
                             flagList.push(flagArray[i].toString());
                         }
-                        return flagList.join(", ");
+                        return flagList.join(",");
                     case "material":
                         return item.getType().toString();
                     case "customModelData":
@@ -465,7 +465,7 @@ function CEPlaceholdersActivator() {
                         	cooldown = meta.getUseCooldown().getCooldownSeconds();
                         } catch (e) {}
                         return cooldown !== null ? cooldown : "None";
-					case "itemModel":
+                    case "itemModel":
                         var meta = item.getItemMeta();
                         return meta.getItemModel ? meta.getItemModel() : "None";
                     default:
