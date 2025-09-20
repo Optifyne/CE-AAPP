@@ -31,6 +31,7 @@ var Vehicle = Java.type("org.bukkit.entity.Vehicle");
 var Hanging = Java.type("org.bukkit.entity.Hanging");
 var FallingBlock = Java.type("org.bukkit.entity.FallingBlock");
 var TNTPrimed = Java.type("org.bukkit.entity.TNTPrimed");
+var Villager = Java.type("org.bukkit.entity.Villager");
 var UUID = Java.type("java.util.UUID");
 var Bukkit = Java.type("org.bukkit.Bukkit");
 var Material = Java.type("org.bukkit.Material");
@@ -67,6 +68,7 @@ var EnchantmentStorageMeta = Java.type("org.bukkit.inventory.meta.EnchantmentSto
 var Directional = Java.type("org.bukkit.block.data.Directional");
 var Rotatable = Java.type("org.bukkit.block.data.Rotatable");
 var Colorable = Java.type("org.bukkit.material.Colorable");
+var MemoryModuleType = Java.type("net.minecraft.world.entity.ai.memory.MemoryModuleType");
 
 var customDataTempGlobalData = new HashMap();
 var customDataTempTargetsData = new HashMap();
@@ -1361,7 +1363,7 @@ function CEPlaceholdersActivator() {
 
                         var ops = [
                             "!equalsIgnoreCase", "equalsIgnoreCase",
-							"!equals",           "equals",
+                            "!equals",           "equals",
                             "!startsWith",       "startsWith",
                             "!endsWith",         "endsWith",
                             "!contains",         "contains",
@@ -2115,6 +2117,12 @@ function CEPlaceholdersActivator() {
                     var attribute = parts[1];
                 }
                 
+                if (action.startsWith("workBlock:")) {
+                    var parts = action.split(":");
+                    action = parts[0];
+                    var attribute = parts.slice(1).join(":");
+                }
+                
                 if (action.startsWith("canSee:")) {
                     var parts = action.split(":");
                     action = parts[0];
@@ -2522,6 +2530,64 @@ function CEPlaceholdersActivator() {
                     	return target.getPose();
                     case "spawnReason":
                     	return target.getEntitySpawnReason ? target.getEntitySpawnReason() : "OnlyPaperAndAbove";
+                    case "workBlock":
+                    	if (target instanceof Villager) {
+                            var nmsVil = target.getHandle();
+                            if (!nmsVil.getBrain) return "OnlyPaper1.20.5+";
+                            
+                            var jobSite = nmsVil.getBrain().getMemory(MemoryModuleType.JOB_SITE);
+                            
+                            if (jobSite.isPresent()) {
+                                var global = jobSite.get();
+                                var pos = global.pos();
+                                var dim = global.dimension();
+
+                                var server = nmsVil.getServer();
+                                var level = server.getLevel(dim);
+
+                                var block = level.getWorld().getBlockAt(pos.getX(), pos.getY(), pos.getZ());
+                                
+                                if (attribute && attribute.startsWith("loc:")) {
+                                    var parts = attribute.split(":");
+                                    attribute = parts[0];
+                                    var coords = parts[1].split(",");
+                                }
+                                switch (attribute) {
+                                    case "type":
+                                        return block.getType().name();
+                                    case "loc":
+                                        var location = block.getLocation();
+                                        var output = [];
+                                        if (!coords) coords = ["world", "x", "y", "z"];
+										
+                                        coords.forEach(function(coord) {
+                                            switch (coord) {
+                                                case "world":
+                                                    output.push(location.getWorld().getName());
+                                                    break;
+                                                case "x":
+                                                    output.push(location.getX());
+                                                    break;
+                                                case "y":
+                                                    output.push(location.getY());
+                                                    break;
+                                                case "z":
+                                                    output.push(location.getZ());
+                                                    break;
+                                                default:
+                                                    return "InvalidCoord";
+                                            }
+                                        });
+
+                                        return output.join(separator);
+                                    default:
+                                        return "InvalidAttribute";
+                                }
+                            }
+                            
+                            return "None";
+                        }
+                        return "TargetIsNotVillager";
                     default:
                         return "InvalidAction";
                 }
@@ -3304,8 +3370,8 @@ function CEPlaceholdersActivator() {
                 
                 return result.length > 0 ? result.map(function (e) { return e.value }).join(separator) : "";
             }
-
-			// ===================== CUSTOM MOON PHASES PLACEHOLDER ===================== //
+            
+            // ===================== CUSTOM MOON PHASES PLACEHOLDER ===================== //
             
             if (identifier.startsWith("customMoon_")) {
                 var args = identifier.substring("customMoon_".length).split("_");
