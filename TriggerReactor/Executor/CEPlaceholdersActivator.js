@@ -401,6 +401,29 @@ function CEPlaceholdersActivator() {
                 });
             }
             
+            function normalizeString(str) {
+                return str
+                    .replace(/\\\\ᵕ/g, "\uE000")
+                    .replace(/\\\\╵/g, "\uE001")
+                    .replace(/\\\\</g, "\uE002")
+                    .replace(/\\\\>/g, "\uE003")
+
+                    .replace(/\\ᵕ/g, "\\_")
+                    .replace(/\\╵/g, "\\%")
+                    .replace(/\\</g, "\\{")
+                    .replace(/\\>/g, "\\}")
+
+                    .replace(/ᵕ/g, "_")
+                    .replace(/╵/g, "%")
+                    .replace(/</g, "{")
+                    .replace(/>/g, "}")
+
+                    .replace(/\uE000/g, "ᵕ")
+                    .replace(/\uE001/g, "╵")
+                    .replace(/\uE002/g, "<")
+                    .replace(/\uE003/g, ">");
+            }
+            
             // ===================== ITEMS CHECKING FEATURES ===================== //
             
             if (identifier.startsWith("item_")) {
@@ -3727,33 +3750,10 @@ function CEPlaceholdersActivator() {
             
             // ===================== REPLACE INPUT THROUGH REGEX ===================== //
             
-            if (identifier.startsWith("replace_")) {
-                var args = identifier.substring("replace_".length).split("_");
+            if (identifier.startsWith("replaceRegEx_")) {
+                var args = identifier.substring("replaceRegEx_".length).split("_");
                 
                 if (args.length < 3) return "InvalidArguments";
-                
-                function normalizeString(str) {
-                    return str
-                        .replace(/\\\\ᵕ/g, "\uE000")
-                        .replace(/\\\\╵/g, "\uE001")
-                        .replace(/\\\\</g, "\uE002")
-                        .replace(/\\\\>/g, "\uE003")
-
-                        .replace(/\\ᵕ/g, "\\_")
-                        .replace(/\\╵/g, "\\%")
-                        .replace(/\\</g, "\\{")
-                        .replace(/\\>/g, "\\}")
-
-                        .replace(/ᵕ/g, "_")
-                        .replace(/╵/g, "%")
-                        .replace(/</g, "{")
-                        .replace(/>/g, "}")
-
-                        .replace(/\uE000/g, "ᵕ")
-                        .replace(/\uE001/g, "╵")
-                        .replace(/\uE002/g, "<")
-                        .replace(/\uE003/g, ">");
-                }
                 
                 var pattern = normalizeString(args[0]);
                 var replace = normalizeString(args[1]);
@@ -3764,6 +3764,27 @@ function CEPlaceholdersActivator() {
                 } catch (e) {
                     return "InvalidRegex";
                 }
+            }
+            
+            // ===================== REPLACE INPUT THROUGH MULTI REPLACEMENT ===================== //
+            
+            if (identifier.startsWith("replaceMulti_")) {
+                var args = identifier.substring("replaceMulti_".length).split("_");
+                
+                if (args.length < 2) return "InvalidArguments";
+                
+                var input = normalizeString(args.slice(1).join("_"));
+				
+                var pattern = normalizeString(args[0]).replace(/\\:/g, "\uE004").replace(/\\=/g, "\uE005").split(":");
+                pattern.forEach(function (p) {
+                    var p = p.replace(/\uE004/g, ":");
+                	var from = p.substring(0, p.indexOf("=")).replace(/\uE005/g, "=");
+                	var to = p.substring(p.indexOf("=")+1).replace(/\uE005/g, "=");
+                    
+                    input = input.split(from).join(to);
+                });
+                
+                return input;
             }
             
             // ===================== CHECK THE DISTANCE BETWEEN TWO POINTS ===================== //
