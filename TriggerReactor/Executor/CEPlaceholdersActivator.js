@@ -30,6 +30,11 @@ var Item = Java.type("org.bukkit.entity.Item");
 var Vehicle = Java.type("org.bukkit.entity.Vehicle");
 var Hanging = Java.type("org.bukkit.entity.Hanging");
 var FallingBlock = Java.type("org.bukkit.entity.FallingBlock");
+var Monster = Java.type("org.bukkit.entity.Monster");
+var Animals = Java.type("org.bukkit.entity.Animals");
+var WaterMob = Java.type("org.bukkit.entity.WaterMob");
+var NPC = Java.type("org.bukkit.entity.NPC");
+var Ambient = Java.type("org.bukkit.entity.Ambient");
 var TNTPrimed = Java.type("org.bukkit.entity.TNTPrimed");
 var Villager = Java.type("org.bukkit.entity.Villager");
 var UUID = Java.type("java.util.UUID");
@@ -98,7 +103,7 @@ function CEPlaceholdersActivator() {
         },
 
         getVersion: function() {
-            return "1.6";
+            return "1.7";
         },
 
         onPlaceholderRequest: function(player, identifier) {
@@ -984,68 +989,40 @@ function CEPlaceholdersActivator() {
             
             // ===================== HIGHEST BLOCK IN LOCATION ===================== //
             
-            if (identifier.startsWith("highestBlock_player_")) {
-                var playerName = identifier.substring("highestBlock_player_".length());
-                var playerNameEndIndex = playerName.lastIndexOf("_");
-                if (playerNameEndIndex !== -1) {
-                    playerName = playerName.substring(0, playerNameEndIndex);
-                }
-                    
-                var targetPlayer = playerName === "" ? player : getPlayerSync(playerName, false);
-                if (targetPlayer != null) {
-                    var targetLocation = targetPlayer.getLocation();
-                    var targetWorld = targetLocation.getWorld();
+            if (identifier.startsWith("highestBlock_")) {
+                var targetIdentifier = identifier.substring("highestBlock_".length()).split(":");
+                var targetName = targetIdentifier[0];
+                var type = targetIdentifier.length > 1 && targetIdentifier[1] === "type";
+                
+                var target;
+                if (targetName.indexOf(",") !== -1) {
+                    var parts = targetName.split(",");
+                    if (parts.length === 3) {
+                        var world = Bukkit.getWorld(parts[0]);
+                        var x = parseFloat(parts[1]);
+                        var z = parseFloat(parts[2]);
                         
-                    if (identifier.endsWith("_type")) {
-                        return targetWorld.getHighestBlockAt(targetLocation).getType().toString();
-                    } else {
-                        return targetWorld.getHighestBlockYAt(targetLocation);
-                    }
-                } else {
-                    return "PlayerNotFound";
-                }
-            }
-            
-            if (identifier.startsWith("highestBlock_uuid_")) {
-                var uuidString = identifier.substring("highestBlock_uuid_".length());
-                if (uuidString === "") return "InvalidUUID";
-                var uuid = UUID.fromString(uuidString);
-                var entity = getEntitySync(uuid);
-                if (entity != null) {
-                    var entitylocation = entity.getLocation();
-                    var entityWorld = entitylocation.getWorld();
+                        if (!world) return "InvalidLocation";
                         
-                    if (identifier.endsWith("_type")) {
-                        return entityWorld.getHighestBlockAt(entitylocation).getType().toString();
+                        target = new Location(world, x, 0.0, z);
                     } else {
-                        return entityWorld.getHighestBlockYAt(entitylocation);
+                        return "InvalidLocation";
                     }
                 } else {
-                    return "EntityNotFound";
-                }
-            }
-            
-            if (identifier.startsWith("highestBlock_coords_")) {
-                var location = identifier.substring("highestBlock_coords_".length()).split(",");
-                if (location.length < 3) return "InvalidLocation";
-                var locationEndIndex = location.lastIndexOf("_");
-                if (locationEndIndex !== -1) {
-                    location = location.substring(0, locationEndIndex);
-                }
-                var worldName = location[0];
-                var x = parseInt(location[1]);
-                var z = parseInt(location[2]);
-                var world = Bukkit.getWorld(worldName);
-                    
-                if (world != null && !isNaN(x) && !isNaN(z)) {
-                    if (identifier.endsWith("_type")) {
-                        return world.getHighestBlockAt(x, z).getType().toString();
-                    } else {
-                        return world.getHighestBlockYAt(x, z);
+                    try {
+                        var uuid = UUID.fromString(targetName);
+                        target = getEntitySync(uuid);
+                    } catch (e) {
+                        target = getPlayerSync(targetName, false);
                     }
-                } else {
-                    return "LocationNotFound";
                 }
+                
+                if (!target) return "InvalidTarget";
+                
+                if (target && !(target instanceof Location)) target = target.getLocation(); 
+                var world = target.getWorld();
+                
+                return type ? world.getHighestBlockAt(target).getType().toString() : world.getHighestBlockYAt(target);
             }
             
             // ===================== RANDOM BLOCK IN AREA ===================== //
@@ -1429,36 +1406,101 @@ function CEPlaceholdersActivator() {
                     return entities.filter(function(entity) { if (!include && entity === player) return false; return true; }).collect(Collectors.toList());
                 }
                 
+                var positive = filters.some(function(filter) { return !filter.startsWith("!") });
+                
                 return entities.filter(function(entity) {
-                    	if (filters.some(function(filter) {
-                            var newFilter = filter.replaceAll("-", "_");
-                            if (newFilter === "PLAYER" && newFilter === entity.getType().toString()) {
-                            	if (include && entity == player) return true;
-                            	if (!include && entity != player) return true;
-                                return false;
-                            }
-                            if (entity.getBlockData) return newFilter === entity.getBlockData().getMaterial().toString();
-                            return newFilter === entity.getType().toString();
-                        })) return true;
-                    	if (filters.some(function(filter) {
-                            var newFilter = filter.replaceAll("-", "_");
-                            if (entity.getBlockData) return newFilter.substring(1) === entity.getBlockData().getMaterial().toString() && newFilter.charAt(0) === "!";
-                            return newFilter.substring(1) === entity.getType().toString() && newFilter.charAt(0) === "!";
-                        })) return false;
-                        if (filters.indexOf("players") !== -1 && entity instanceof Player) {
+                	if (filters.some(function(filter) {
+                        var newFilter = filter.replaceAll("-", "_");
+                        if (newFilter === "PLAYER" && newFilter === entity.getType().toString()) {
                             if (include && entity == player) return true;
                             if (!include && entity != player) return true;
+                            return false;
                         }
-                        if (filters.indexOf("mobs") !== -1 && entity instanceof LivingEntity && !(entity instanceof Player)) return true;
-                        if (filters.indexOf("items") !== -1 && entity instanceof Item) return true;
-                        if (filters.indexOf("vehicles") !== -1 && entity instanceof Vehicle) return true;
-                        if (filters.indexOf("projectiles") !== -1 && entity instanceof Projectile) return true;
-                    	if (filters.indexOf("hanging") !== -1 && entity instanceof Hanging) return true;
-                    	if (filters.indexOf("falling") !== -1 && entity instanceof FallingBlock) return true;
-                    	if (filters.indexOf("tnt") !== -1 && entity instanceof TNTPrimed) return true;
-                        return false;
-                    })
-                    .collect(Collectors.toList());
+                        if (entity.getBlockData) return newFilter === entity.getBlockData().getMaterial().toString();
+                        return newFilter === entity.getType().toString();
+                    })) return true;
+                    
+                    if (filters.some(function(filter) {
+                        var newFilter = filter.replaceAll("-", "_");
+                        if (entity.getBlockData) return newFilter.substring(1) === entity.getBlockData().getMaterial().toString() && newFilter.charAt(0) === "!";
+                        return newFilter.substring(1) === entity.getType().toString() && newFilter.charAt(0) === "!";
+                    })) return false;
+                    
+                    if ((entity instanceof Player) && !include && entity === player) return false;
+
+                    if (entity instanceof Player) {
+                        if (filters.indexOf("players") !== -1) return true;
+                        if (filters.indexOf("!players") !== -1) return false;
+                    }
+
+                    if (entity instanceof Monster) {
+                        if (filters.indexOf("monsters") !== -1) return true;
+                        if (filters.indexOf("!monsters") !== -1) return false;
+                    }
+
+                    if (entity instanceof Animals) {
+                        if (filters.indexOf("animals") !== -1) return true;
+                        if (filters.indexOf("!animals") !== -1) return false;
+                    }
+
+                    if (entity instanceof WaterMob) {
+                        if (filters.indexOf("waterMobs") !== -1) return true;
+                        if (filters.indexOf("!waterMobs") !== -1) return false;
+                    }
+
+                    if (entity instanceof NPC) {
+                        if (filters.indexOf("NPCs") !== -1) return true;
+                        if (filters.indexOf("!NPCs") !== -1) return false;
+                    }
+
+                    if (entity instanceof Ambient) {
+                        if (filters.indexOf("ambients") !== -1) return true;
+                        if (filters.indexOf("!ambients") !== -1) return false;
+                    }
+
+                    if (entity instanceof Item) {
+                        if (filters.indexOf("items") !== -1) return true;
+                        if (filters.indexOf("!items") !== -1) return false;
+                    }
+
+                    if (entity instanceof Vehicle) {
+                        if (filters.indexOf("vehicles") !== -1) return true;
+                        if (filters.indexOf("!vehicles") !== -1) return false;
+                    }
+
+                    if (entity instanceof Projectile) {
+                        if (filters.indexOf("projectiles") !== -1) return true;
+                        if (filters.indexOf("!projectiles") !== -1) return false;
+                    }
+
+                    if (entity instanceof Hanging) {
+                        if (filters.indexOf("hanging") !== -1) return true;
+                        if (filters.indexOf("!hanging") !== -1) return false;
+                    }
+
+                    if (entity instanceof FallingBlock) {
+                        if (filters.indexOf("falling") !== -1) return true;
+                        if (filters.indexOf("!falling") !== -1) return false;
+                    }
+
+                    if (entity instanceof TNTPrimed) {
+                        if (filters.indexOf("tnt") !== -1) return true;
+                        if (filters.indexOf("!tnt") !== -1) return false;
+                    }
+
+                    if (entity instanceof Mob) {
+                        if (filters.indexOf("mobs") !== -1) return true;
+                        if (filters.indexOf("!mobs") !== -1) return false;
+                    }
+
+                    if (entity instanceof LivingEntity) {
+                        if (filters.indexOf("livingEntities") !== -1) return true;
+                        if (filters.indexOf("!livingEntities") !== -1) return false;
+                    }
+
+                    return !positive;
+                })
+                .collect(Collectors.toList());
             }
             
             function syncGetEntitiesInRadius(world, x, y, z, radius, include, filters) {
@@ -1487,7 +1529,7 @@ function CEPlaceholdersActivator() {
 
             if (identifier.startsWith("entitiesInRadius_")) {
                 var args = identifier.substring("entitiesInRadius_".length).split("_");
-                if (args.length < 7) return "InvalidArgs";
+                if (args.length < 7) return "InvalidArguments";
 					
                 var worldName = args.slice(0, args.length - 6).join("_");
                 var x = parseFloat(args[args.length - 6]);
@@ -1505,7 +1547,7 @@ function CEPlaceholdersActivator() {
 
             if (identifier.startsWith("entitiesCountInRadius_")) {
                 var args = identifier.substring("entitiesCountInRadius_".length).split("_");
-                if (args.length < 7) return "InvalidArgs";
+                if (args.length < 7) return "InvalidArguments";
 
                 var worldName = args.slice(0, args.length - 6).join("_");
                 var x = parseFloat(args[args.length - 6]);
@@ -1523,9 +1565,10 @@ function CEPlaceholdersActivator() {
 
             if (identifier.startsWith("entitiesListInRadius_")) {
                 var args = identifier.substring("entitiesListInRadius_".length).split("_");
-                if (args.length < 8) return "InvalidArgs";
+                if (args.length < 9) return "InvalidArguments";
 				
-                var worldName = args.slice(0, args.length - 7).join("_");
+                var separator = args[0];
+                var worldName = args.slice(1, args.length - 7).join("_");
                 var x = parseFloat(args[args.length - 7]);
                 var y = parseFloat(args[args.length - 6]);
                 var z = parseFloat(args[args.length - 5]);
@@ -1541,32 +1584,32 @@ function CEPlaceholdersActivator() {
                 if (attribute == "uuid") {
                     return entities.stream()
                         .map(function(e) { return e.getUniqueId().toString(); })
-                        .collect(Collectors.joining(","));
+                        .collect(Collectors.joining(separator));
                 }
                 if (attribute == "type") {
                     return entities.stream()
                         .map(function(e) { return e.getType().name(); })
-                        .collect(Collectors.joining(","));
+                        .collect(Collectors.joining(separator));
                 }
                 if (attribute == "type,type") {
                     return entities.stream()
                         .map(function(e) { return e.getBlockData ? e.getBlockData().getMaterial().name() : e.getType().name(); })
-                        .collect(Collectors.joining(","));
+                        .collect(Collectors.joining(separator));
                 }
                 if (attribute == "enum") {
                     return entities.stream()
                         .map(function(e) { return e.toString(); })
-                        .collect(Collectors.joining(","));
+                        .collect(Collectors.joining(separator));
                 }
                 if (attribute == "name") {
                     return entities.stream()
                         .map(function(e) { return e.getName ? e.getName() : "Unknown"; })
-                        .collect(Collectors.joining(","));
+                        .collect(Collectors.joining(separator));
                 }
                 if (attribute == "coords") {
                     return entities.stream()
-                        .map(function(e) { var location = e.getLocation(); return location.getWorld().getName() + ";" + location.getX() + ";" + location.getY() + ";" + location.getZ(); })
-                        .collect(Collectors.joining(","));
+                        .map(function(e) { var location = e.getLocation(); return location.getWorld().getName() + ";" + location.getX() + ";" + location.getY() + ";" + location.getZ() + ";" + location.getYaw() + ";" + location.getPitch(); })
+                        .collect(Collectors.joining(separator));
                 }
 
                 return "InvalidAttribute";
@@ -1574,9 +1617,10 @@ function CEPlaceholdersActivator() {
 
             if (identifier.startsWith("entityAtIndexInRadius_")) {
                 var args = identifier.substring("entityAtIndexInRadius_".length).split("_");
-                if (args.length < 9) return "InvalidArgs";
+                if (args.length < 10) return "InvalidArguments";
 				
-                var worldName = args.slice(0, args.length - 8).join("_");
+                var separator = args[0];
+                var worldName = args.slice(1, args.length - 8).join("_");
                 var x = parseFloat(args[args.length - 8]);
                 var y = parseFloat(args[args.length - 7]);
                 var z = parseFloat(args[args.length - 6]);
@@ -1600,7 +1644,7 @@ function CEPlaceholdersActivator() {
                 if (attribute == "name") return entity.getName ? entity.getName() : "Unknown";
                 if (attribute == "coords") {
                     var location = entity.getLocation();
-                    return location.getWorld().getName() + ";" + location.getX() + ";" + location.getY() + ";" + location.getZ();
+                    return location.getWorld().getName() + separator + location.getX() + separator + location.getY() + separator + location.getZ() + separator + location.getYaw() + separator + location.getPitch();
                 }
 
                 return "InvalidAttribute";
