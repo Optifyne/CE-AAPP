@@ -103,7 +103,7 @@ function CEPlaceholdersActivator() {
         },
 
         getVersion: function() {
-            return "1.7";
+            return "1.8";
         },
 
         onPlaceholderRequest: function(player, identifier) {
@@ -3081,6 +3081,13 @@ function CEPlaceholdersActivator() {
                     var attribute = parts[1];
                 }
                 
+                try {
+                    var BaseSpawner = Java.type("org.bukkit.spawner.BaseSpawner");
+                    var Spawner = Java.type("org.bukkit.spawner.Spawner");
+                } catch (e) {}
+                
+                var CreatureSpawner = Java.type("org.bukkit.block.CreatureSpawner");
+                
                 var blockState = block.getState();
                 switch (action) {
 					case "light":
@@ -3192,6 +3199,52 @@ function CEPlaceholdersActivator() {
                             return "None";
                         }
                         return "BlockIsNotSkull";
+                    case "spawnerType":
+                        if ((BaseSpawner && blockState instanceof BaseSpawner) || (blockState instanceof CreatureSpawner)) {
+                            return blockState.getSpawnedType() || "None";
+                        }
+                        return BaseSpawner ? "BlockIsNotBaseSpawner" : "BlockIsNotCreatureSpawner";
+                    case "spawnerDelay":
+                        if ((BaseSpawner && blockState instanceof BaseSpawner) || (blockState instanceof CreatureSpawner)) {
+                            return blockState.getDelay();
+                        }
+                        return BaseSpawner ? "BlockIsNotBaseSpawner" : "BlockIsNotCreatureSpawner";
+                    case "spawnerRequiredPlayerRange":
+                    case "spawnerReqPlRng":
+                        if ((BaseSpawner && blockState instanceof BaseSpawner) || (blockState instanceof CreatureSpawner)) {
+                            return blockState.getRequiredPlayerRange();
+                        }
+                        return BaseSpawner ? "BlockIsNotBaseSpawner" : "BlockIsNotCreatureSpawner";
+                    case "spawnerSpawnRange":
+                    case "spawnerSpRng":
+                        if ((BaseSpawner && blockState instanceof BaseSpawner) || (blockState instanceof CreatureSpawner)) {
+                            return blockState.getSpawnRange();
+                        }
+                        return BaseSpawner ? "BlockIsNotBaseSpawner" : "BlockIsNotCreatureSpawner";
+                    case "spawnerMaxNearbyEntities":
+                    case "spawnerMaxNEnt":
+                        if ((Spawner && blockState instanceof Spawner) || (blockState instanceof CreatureSpawner)) {
+                            return blockState.getMaxNearbyEntities();
+                        }
+                        return Spawner ? "BlockIsNotSpawner" : "BlockIsNotCreatureSpawner";
+                    case "spawnerMaxSpawnDelay":
+                    case "spawnerMaxSpDel":
+                        if ((Spawner && blockState instanceof Spawner) || (blockState instanceof CreatureSpawner)) {
+                            return blockState.getMaxSpawnDelay();
+                        }
+                        return Spawner ? "BlockIsNotSpawner" : "BlockIsNotCreatureSpawner";
+                    case "spawnerMinSpawnDelay":
+                    case "spawnerMinSpDel":
+                        if ((Spawner && blockState instanceof Spawner) || (blockState instanceof CreatureSpawner)) {
+                            return blockState.getMinSpawnDelay();
+                        }
+                        return Spawner ? "BlockIsNotSpawner" : "BlockIsNotCreatureSpawner";
+                    case "spawnerSpawnCount":
+                    case "spawnerSpCount":
+                        if ((Spawner && blockState instanceof Spawner) || (blockState instanceof CreatureSpawner)) {
+                            return blockState.getSpawnCount();
+                        }
+                        return Spawner ? "BlockIsNotSpawner" : "BlockIsNotCreatureSpawner";
                     default:
                         return "InvalidAction";
                 }
@@ -3512,7 +3565,7 @@ function CEPlaceholdersActivator() {
             }
             
             // ===================== PLAYER LISTS PLACEHOLDER ===================== //
-            
+
             if (identifier.startsWith("list_")) {
                 var withoutPrefix = identifier.substring("list_".length);
 
@@ -3576,36 +3629,14 @@ function CEPlaceholdersActivator() {
 
                     var afterType = afterSeparator.substring(typeEnd + 1);
 
-                    var sortMatch = afterType.match(/^(AZ|ZA|NONE|SORT:\$.*?@(?:\s+DESC)?)(?:_)/);
-                    if (!sortMatch) return "InvalidArguments";
-
-                    var sortRaw = sortMatch[1];
-                    var rest = afterType.substring(sortRaw.length + 1);
-
                     var sortMode = "NONE";
                     var sortPlaceholder = null;
                     var sortDescending = false;
-
-                    if (sortRaw.toUpperCase() === "AZ") {
-                        sortMode = "AZ";
-                    } else if (sortRaw.toUpperCase() === "ZA") {
-                        sortMode = "ZA";
-                    } else if (sortRaw.toUpperCase().startsWith("SORT:")) {
-                        sortMode = "PLACEHOLDER";
-
-                        var sortExpr = sortRaw.substring(5);
-                        var parts = sortExpr.split(/\s+/);
-
-                        sortPlaceholder = parts[0];
-                        if (parts.length > 1 && parts[1].toUpperCase() === "DESC") {
-                            sortDescending = true;
-                        }
-                    }
+                    var sortList = null;
 
                     function findEndOfFormattedPlaceholderString(input) {
                         var i = 0;
                         var depth = 0;
-
                         while (i < input.length) {
                             var char = input.charAt(i);
                             var next = input.charAt(i + 1);
@@ -3614,16 +3645,81 @@ function CEPlaceholdersActivator() {
                                 i += 2;
                                 continue;
                             }
-
                             if (char === "$") {
                                 depth++;
                                 i++;
                                 continue;
                             }
-
                             if (char === "@") {
                                 depth--;
                                 i++;
+                                if (depth <= 0) {
+                                    while (input.charAt(i) === "\\" && (input.charAt(i + 1) === "$" || input.charAt(i + 1) === "@")) {
+                                        i += 2;
+                                    }
+                                    return i;
+                                }
+                                continue;
+                            }
+                            i++;
+                        }
+                        return -1;
+                    }
+
+                    var rest;
+                    if (afterType.startsWith("AZ_")) {
+                        sortMode = "AZ";
+                        rest = afterType.substring("AZ_".length);
+                    } else if (afterType.startsWith("ZA_")) {
+                        sortMode = "ZA";
+                        rest = afterType.substring("ZA_".length);
+                    } else if (afterType.startsWith("NONE_")) {
+                        sortMode = "NONE";
+                        rest = afterType.substring("NONE_".length);
+                    } else if (afterType.startsWith("SORT:")) {
+                        sortMode = "PLACEHOLDER";
+
+                        var afterSort = afterType.substring("SORT:".length);
+                        var phEnd = findEndOfFormattedPlaceholderString(afterSort);
+                        if (phEnd === -1) return "InvalidArguments";
+
+                        sortPlaceholder = afterSort.substring(0, phEnd);
+
+                        var tail = afterSort.substring(phEnd);
+                        var usIdx = tail.indexOf("_");
+                        if (usIdx === -1) return "InvalidArguments";
+
+                        var extraRaw = tail.substring(0, usIdx);
+                        rest = tail.substring(usIdx + 1);
+
+                        var extra = extraRaw.trim();
+                        if (extra.length > 0) {
+                            var parts = extra.split(/\s+/);
+                            if (parts.length > 0 && parts[parts.length - 1].toUpperCase() === "DESC") {
+                                sortDescending = true;
+                                parts.pop();
+                                extra = parts.join(" ").trim();
+                            }
+                            if (extra.length > 0) {
+                                sortList = extra.split(",")
+                                    .map(function (s) { return s.trim(); })
+                                    .filter(function (s) { return s.length > 0; });
+                                if (sortList.length === 0) sortList = null;
+                            }
+                        }
+                    } else {
+                        return "InvalidArguments";
+                    }
+
+                    var outputEnd = (function findEndForOutput(input) {
+                        var i = 0, depth = 0;
+                        while (i < input.length) {
+                            var ch = input.charAt(i);
+                            var nx = input.charAt(i + 1);
+                            if (ch === "\\" && (nx === "$" || nx === "@")) { i += 2; continue; }
+                            if (ch === "$") { depth++; i++; continue; }
+                            if (ch === "@") {
+                                depth--; i++;
                                 if (depth <= 0) {
                                     while (input.charAt(i) === "\\" && (input.charAt(i + 1) === "$" || input.charAt(i + 1) === "@")) {
                                         i += 2;
@@ -3632,14 +3728,11 @@ function CEPlaceholdersActivator() {
                                 }
                                 continue;
                             }
-
                             i++;
                         }
-
                         return -1;
-                    }
+                    })(rest);
 
-                    var outputEnd = findEndOfFormattedPlaceholderString(rest);
                     if (outputEnd === -1) {
                         if (rest.endsWith("@")) {
                             outputEnd = rest.length;
@@ -3647,15 +3740,15 @@ function CEPlaceholdersActivator() {
                             return "InvalidOutputPlaceholder";
                         }
                     }
-                    var outputRaw = rest.substring(0, outputEnd);
 
+                    var outputRaw = rest.substring(0, outputEnd);
                     var rawCondition = "";
                     if (outputEnd < rest.length && rest.charAt(outputEnd) === "_") {
                         rawCondition = rest.substring(outputEnd + 1);
                     }
-                    
-                    outputRaw = outputRaw.replaceAll("␠", " ");
-    				rawCondition = rawCondition.replaceAll("␠", " ").replaceAll("ᵕ", "_");
+
+                    outputRaw = outputRaw.replaceAll("␠", " ").replaceAll("ᵕ", "_");
+                    rawCondition = rawCondition.replaceAll("␠", " ").replaceAll("ᵕ", "_");
 
                     var exprTree = null;
                     if (rawCondition.trim().length > 0) {
@@ -3695,29 +3788,75 @@ function CEPlaceholdersActivator() {
                     }
 
                     if (sortMode === "AZ") {
-                        result.sort(function (a, b) { return a.value.localeCompare(b.value) });
+                        result.sort(function (a, b) { return a.value.toString().localeCompare(b.value.toString()); });
                     } else if (sortMode === "ZA") {
-                        result.sort(function (a, b) { return b.value.localeCompare(a.value) });
+                        result.sort(function (a, b) { return b.value.toString().localeCompare(a.value.toString()); });
                     } else if (sortMode === "PLACEHOLDER" && sortPlaceholder) {
+                        var INF = 1e9;
+
+                        function isStrictNumber(t) {
+                            return /^[-+]?\d+(?:[.,]\d+)?$/.test(t);
+                        }
+
+                        function parseStrictNumber(t) {
+                            if (!isStrictNumber(t)) return null;
+                            return parseFloat(t.replace(',', '.'));
+                        }
+
+                        var CURRENCY_TAIL_RE = /\s*[$€£₽₴₸₺¥₩₦]$/;
+
+                        function normalizeForListCompare(x) {
+                            if (x == null) return "";
+                            var t = x.toString().trim().replace(/\u00A0/g, " ");
+                            t = t.replace(CURRENCY_TAIL_RE, "");
+                            return t;
+                        }
+
+                        function eqBySmart(a, b) {
+                            var aa = normalizeForListCompare(a);
+                            var bb = normalizeForListCompare(b);
+
+                            var na = parseStrictNumber(aa);
+                            var nb = parseStrictNumber(bb);
+                            if (na !== null && nb !== null) return na === nb;
+
+                            return aa.toLowerCase() === bb.toLowerCase();
+                        }
+                        function rankByList(val, listArr) {
+                            if (!listArr || listArr.length === 0) return INF;
+                            for (var i = 0; i < listArr.length; i++) {
+                                if (eqBySmart(val, listArr[i])) return i;
+                            }
+                            return INF;
+                        }
+
                         result.forEach(function (e) {
                             e.sortVal = resolveNestedPlaceholders(e.player, sortPlaceholder);
+                            e.sortRank = (sortList && sortList.length > 0) ? rankByList(e.sortVal, sortList) : null;
                         });
+
                         result.sort(function (a, b) {
-                            var aVal = a.sortVal;
-                            var bVal = b.sortVal;
+                            if (sortList && sortList.length > 0) {
+                                var aInf = (a.sortRank === INF);
+                                var bInf = (b.sortRank === INF);
+                                if (aInf !== bInf) return aInf ? 1 : -1;
 
-                            var aNum = parseFloat(aVal);
-                            var bNum = parseFloat(bVal);
-
-                            var bothNumbers = !isNaN(aNum) && !isNaN(bNum);
-
-                            if (bothNumbers) {
-                                return sortDescending ? bNum - aNum : aNum - bNum;
+                                if (!aInf) {
+                                    if (a.sortRank !== b.sortRank) {
+                                        return sortDescending ? (b.sortRank - a.sortRank) : (a.sortRank - b.sortRank);
+                                    }
+                                }
                             }
 
-                            return sortDescending
-                                ? bVal.toString().localeCompare(aVal.toString())
-                                : aVal.toString().localeCompare(bVal.toString());
+                            var aNum = parseStrictNumber(normalizeForListCompare(a.sortVal));
+							var bNum = parseStrictNumber(normalizeForListCompare(b.sortVal));
+                            if (aNum !== null && bNum !== null) {
+                                return sortDescending ? (bNum - aNum) : (aNum - bNum);
+                            }
+
+                            var sa = (a.sortVal == null) ? "" : a.sortVal.toString();
+                            var sb = (b.sortVal == null) ? "" : b.sortVal.toString();
+                            return sortDescending ? sb.localeCompare(sa) : sa.localeCompare(sb);
                         });
                     }
 
@@ -3725,7 +3864,7 @@ function CEPlaceholdersActivator() {
                         result = result.slice(0, limit);
                     }
 
-                    return result.length > 0 ? result.map(function (e) { return e.value }).join(separator) : "";
+                    return result.length > 0 ? result.map(function (e) { return e.value; }).join(separator) : "";
                 }
 
                 if (mode === "SYNC") {
