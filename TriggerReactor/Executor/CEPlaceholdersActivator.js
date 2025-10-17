@@ -2969,7 +2969,7 @@ function CEPlaceholdersActivator() {
                         var spAttribute = attribute ? attribute.split("=") : [];
                         if (spAttribute.length > 1) {
                             attribute = spAttribute[0];
-                            var returnKey = spAttribute[1];
+                            var returnKey = spAttribute.slice(1).join("=");
                         }
                         switch (attribute) {
                             case "ASYNC":
