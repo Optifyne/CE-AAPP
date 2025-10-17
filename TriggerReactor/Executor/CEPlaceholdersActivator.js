@@ -538,13 +538,13 @@ function CEPlaceholdersActivator() {
                         for (var j = 0; j < indexes.length; j++) {
                             var index = parseInt(indexes[j]);
                             if (!isNaN(index) && index >= 0 && index < lore.length) {
-                                selectedLore += lore[index] + "|";
+                                selectedLore += lore[index] + separator;
                             }
                         }
                     } else {
                         var loreText = "";
                         for (var i = 0; i < lore.length; i++) {
-                            loreText += lore[i] + "|";
+                            loreText += lore[i] + separator;
                         }
                         return loreText.trim();
                     }
@@ -584,7 +584,7 @@ function CEPlaceholdersActivator() {
                     if (!item.hasItemMeta()) return "None";
                     var meta = item.getItemMeta();
                     var data = meta.getPersistentDataContainer();
-                    var parts = mode.split(":");
+                    var parts = mode.replaceAll("ᵕ", "_").split(":");
 
                     if ((mode.startsWith("dataContainer-value") || mode.startsWith("dataContainer-type")) && parts.length < 3) return "NotEnoughData";
                     if (mode.startsWith("dataContainer-all") && parts.length < 2) return "NotEnoughData";
@@ -624,7 +624,7 @@ function CEPlaceholdersActivator() {
                                 }
                             });
 
-                            return foundData.length > 0 ? foundData.join(" | ") : "None";
+                            return foundData.length > 0 ? foundData.join(separator) : "None";
                         } else if (mode.startsWith("dataContainer-value")) {
                             var id = parts[2];
 
@@ -674,7 +674,7 @@ function CEPlaceholdersActivator() {
                             var entry = keys[i];
                             enchantmentList.push(entry.getName() + "=" + enchantments.get(entry));
                         }
-                        return enchantmentList.join(",");
+                        return enchantmentList.join(separator);
                     case "enchantmentsBook":
                         var meta = item.getItemMeta();
                         if (!(meta instanceof EnchantmentStorageMeta)) return "ItemIsNotEnchantedBook";
@@ -687,7 +687,7 @@ function CEPlaceholdersActivator() {
                             var entry = keys[i];
                             enchantmentList.push(entry.getName() + "=" + enchantments.get(entry));
                         }
-                        return enchantmentList.join(",");
+                        return enchantmentList.join(separator);
                     case "maxDurability":
                         return item.getType().getMaxDurability();
                     case "currentDurability":
@@ -708,7 +708,7 @@ function CEPlaceholdersActivator() {
                         for (var i = 0; i < flagArray.length; i++) {
                             flagList.push(flagArray[i].toString());
                         }
-                        return flagList.join(",");
+                        return flagList.join(separator);
                     case "material":
                         return item.getType().toString();
                     case "customModelData":
