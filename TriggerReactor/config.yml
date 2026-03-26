@@ -1,0 +1,6 @@
+Mysql:
+  Enable: false
+  Address: 127.0.0.1:3306
+  DbName: TriggerReactor
+  UserName: root
+  Password: '1234'
