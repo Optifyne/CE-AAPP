@@ -81,6 +81,7 @@ var CompletableFuture = Java.type("java.util.concurrent.CompletableFuture");
 var Callable = Java.type("java.util.concurrent.Callable");
 var ArrayListMultimap = Java.type("com.google.common.collect.ArrayListMultimap");
 var PotionEffectType = Java.type("org.bukkit.potion.PotionEffectType");
+var System = Java.type("java.lang.System");
 
 try {
     var EquipmentSlotGroup = Java.type("org.bukkit.inventory.EquipmentSlotGroup");
@@ -5394,6 +5395,12 @@ function CEPlaceholdersActivator() {
                     default:
                         return "InvalidOption";
                 }
+            }
+            
+            // ===================== GET CURRENT TIMESTAMP IN MILLISECONDS ===================== //
+            
+            if (identifier.equals("currentTimeMillis")) {
+                return System.currentTimeMillis();
             }
             
             return null;
